@@ -20,10 +20,12 @@ const Build_1 = require("./Rules/Build");
 const BuildCost_1 = require("./Rules/BuildCost");
 const BulidingCancelled_1 = require("./Rules/BulidingCancelled");
 const BulidingComplete_1 = require("./Rules/BulidingComplete");
+const DataObject_1 = require("@civ-clone/core-data-object/DataObject");
 const RuleRegistry_1 = require("@civ-clone/core-rule/RuleRegistry");
 const Yields_1 = require("./Yields");
-class CityBuild {
+class CityBuild extends DataObject_1.DataObject {
     constructor(city, availableCityBuildItemsRegistry = AvailableCityBuildItemsRegistry_1.instance, ruleRegistry = RuleRegistry_1.instance) {
+        super();
         _availableCityBuildItemsRegistry.set(this, void 0);
         // #building: IBuildItem | null = null;
         _building.set(this, null);
@@ -34,6 +36,7 @@ class CityBuild {
         __classPrivateFieldSet(this, _availableCityBuildItemsRegistry, availableCityBuildItemsRegistry);
         __classPrivateFieldSet(this, _city, city);
         __classPrivateFieldSet(this, _ruleRegistry, ruleRegistry);
+        this.addKey('available', 'building', 'cost', 'progress', 'remaining');
     }
     add(production) {
         __classPrivateFieldGet(this, _progress).add(production);

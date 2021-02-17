@@ -1,6 +1,5 @@
 import { Build, IBuildCriterion } from '../Rules/Build';
 import AvailableCityBuildItemsRegistry from '../AvailableCityBuildItemsRegistry';
-import BuildCost, { buildCost } from '../Rules/BuildCost';
 import { BuildProgress } from '../Yields';
 import BuildingCancelled from '../Rules/BulidingCancelled';
 import BuildingComplete from '../Rules/BulidingComplete';
@@ -9,6 +8,7 @@ import Criterion from '@civ-clone/core-rule/Criterion';
 import Effect from '@civ-clone/core-rule/Effect';
 import RuleRegistry from '@civ-clone/core-rule/RuleRegistry';
 import Unit from '@civ-clone/core-unit/Unit';
+import { buildCost } from '../Rules/BuildCost';
 import { setUpCity } from '@civ-clone/core-city/tests/lib/setUpCity';
 import * as chai from 'chai';
 import * as spies from 'chai-spies';

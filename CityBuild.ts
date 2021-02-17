@@ -14,6 +14,10 @@ import {
   ICompletedBuildItem,
 } from './Rules/BulidingComplete';
 import {
+  DataObject,
+  IDataObject,
+} from '@civ-clone/core-data-object/DataObject';
+import {
   RuleRegistry,
   instance as ruleRegistryInstance,
 } from '@civ-clone/core-rule/RuleRegistry';
@@ -26,7 +30,7 @@ import Yield from '@civ-clone/core-yield/Yield';
 
 // export type IBuildItem = IConstructor<CityImprovement> | IConstructor<Unit>;
 
-export interface ICityBuild {
+export interface ICityBuild extends IDataObject {
   add(production: Yield): void;
   // available(): IBuildItem[];
   available(): IConstructor[];
@@ -41,7 +45,7 @@ export interface ICityBuild {
   revalidate(): void;
 }
 
-export class CityBuild implements ICityBuild {
+export class CityBuild extends DataObject implements ICityBuild {
   #availableCityBuildItemsRegistry: AvailableCityBuildItemsRegistry;
   // #building: IBuildItem | null = null;
   #building: IConstructor | null = null;
@@ -55,9 +59,13 @@ export class CityBuild implements ICityBuild {
     availableCityBuildItemsRegistry: AvailableCityBuildItemsRegistry = availableCityBuildItemsRegistryInstance,
     ruleRegistry: RuleRegistry = ruleRegistryInstance
   ) {
+    super();
+
     this.#availableCityBuildItemsRegistry = availableCityBuildItemsRegistry;
     this.#city = city;
     this.#ruleRegistry = ruleRegistry;
+
+    this.addKey('available', 'building', 'cost', 'progress', 'remaining');
   }
 
   add(production: Yield): void {
