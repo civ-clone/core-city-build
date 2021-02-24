@@ -36,7 +36,7 @@ class CityBuild extends DataObject_1.DataObject {
         __classPrivateFieldSet(this, _availableCityBuildItemsRegistry, availableCityBuildItemsRegistry);
         __classPrivateFieldSet(this, _city, city);
         __classPrivateFieldSet(this, _ruleRegistry, ruleRegistry);
-        this.addKey('available', 'building', 'cost', 'progress', 'remaining');
+        this.addKey('available', 'building', 'city', 'cost', 'progress', 'remaining');
     }
     add(production) {
         __classPrivateFieldGet(this, _progress).add(production);

@@ -65,7 +65,14 @@ export class CityBuild extends DataObject implements ICityBuild {
     this.#city = city;
     this.#ruleRegistry = ruleRegistry;
 
-    this.addKey('available', 'building', 'cost', 'progress', 'remaining');
+    this.addKey(
+      'available',
+      'building',
+      'city',
+      'cost',
+      'progress',
+      'remaining'
+    );
   }
 
   add(production: Yield): void {
