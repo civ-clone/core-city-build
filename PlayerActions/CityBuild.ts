@@ -1,4 +1,4 @@
-import MandatoryPlayerAction from '../../core-player/MandatoryPlayerAction';
+import MandatoryPlayerAction from '@civ-clone/core-player/MandatoryPlayerAction';
 
 export class CityBuild extends MandatoryPlayerAction {}
 

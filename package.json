@@ -1,6 +1,6 @@
 {
   "name": "@civ-clone/core-city-build",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "main": "index.js",
   "repository": "git@github.com:civ-clone/core-city-build.git",
   "keywords": [
@@ -19,6 +19,7 @@
     "ts:compile": "tsc --build tsconfig.json"
   },
   "devDependencies": {
+    "@civ-clone/civ1-city": "github:civ-clone/civ1-city",
     "@types/chai": "^4.2.14",
     "@types/chai-spies": "^1.0.3",
     "@types/mocha": "^8.0.3",

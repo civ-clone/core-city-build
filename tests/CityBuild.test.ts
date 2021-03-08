@@ -9,7 +9,7 @@ import Effect from '@civ-clone/core-rule/Effect';
 import RuleRegistry from '@civ-clone/core-rule/RuleRegistry';
 import Unit from '@civ-clone/core-unit/Unit';
 import { buildCost } from '../Rules/BuildCost';
-import { setUpCity } from '@civ-clone/core-city/tests/lib/setUpCity';
+import { setUpCity } from '@civ-clone/civ1-city/tests/lib/setUpCity';
 import * as chai from 'chai';
 import * as spies from 'chai-spies';
 
@@ -26,11 +26,11 @@ describe('CityBuild', (): void => {
     expect(cityBuild.building()).to.null;
   });
 
-  it('should correctly use `Rule`s to determine the cost and availability of BuildItems', (): void => {
+  it('should correctly use `Rule`s to determine the cost and availability of BuildItems', async (): Promise<void> => {
     const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
       ruleRegistry = new RuleRegistry(),
       cityBuild = new CityBuild(
-        setUpCity(),
+        await setUpCity(),
         availableBuildItemsRegistry,
         ruleRegistry
       ),
@@ -56,11 +56,11 @@ describe('CityBuild', (): void => {
     expect(spy).to.called.once;
   });
 
-  it('should accept `BuildProgress` until the `cost` is reached', (): void => {
+  it('should accept `BuildProgress` until the `cost` is reached', async (): Promise<void> => {
     const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
       ruleRegistry = new RuleRegistry(),
       cityBuild = new CityBuild(
-        setUpCity(),
+        await setUpCity(),
         availableBuildItemsRegistry,
         ruleRegistry
       ),
@@ -93,11 +93,11 @@ describe('CityBuild', (): void => {
     expect(spy).to.called.once;
   });
 
-  it("should throw and error if a `Build` `Rule` doesn't return a `Criterion`", (): void => {
+  it("should throw and error if a `Build` `Rule` doesn't return a `Criterion`", async (): Promise<void> => {
     const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
       ruleRegistry = new RuleRegistry(),
       cityBuild = new CityBuild(
-        setUpCity(),
+        await setUpCity(),
         availableBuildItemsRegistry,
         ruleRegistry
       );
