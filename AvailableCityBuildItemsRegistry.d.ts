@@ -2,11 +2,11 @@ import {
   ConstructorRegistry,
   IConstructorRegistry,
 } from '@civ-clone/core-registry/ConstructorRegistry';
-export interface IAvailableCityBuildItemsRegistry
-  extends IConstructorRegistry {}
+import Buildable from './Buildable';
 export declare class AvailableCityBuildItemsRegistry
-  extends ConstructorRegistry
-  implements IAvailableCityBuildItemsRegistry {
+  extends ConstructorRegistry<Buildable>
+  implements IConstructorRegistry<Buildable>
+{
   constructor();
 }
 export declare const instance: AvailableCityBuildItemsRegistry;

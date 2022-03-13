@@ -1,21 +1,22 @@
 import { AvailableCityBuildItemsRegistry } from './AvailableCityBuildItemsRegistry';
-import { ICompletedBuildItem } from './Rules/BulidingComplete';
 import {
   DataObject,
   IDataObject,
 } from '@civ-clone/core-data-object/DataObject';
 import { RuleRegistry } from '@civ-clone/core-rule/RuleRegistry';
+import BuildItem from './BuildItem';
 import { BuildProgress } from './Yields';
+import Buildable from './Buildable';
 import City from '@civ-clone/core-city/City';
-import { IConstructor } from '@civ-clone/core-registry/Registry';
 import Yield from '@civ-clone/core-yield/Yield';
 export interface ICityBuild extends IDataObject {
   add(production: Yield): void;
-  available(): IConstructor[];
-  build(BuildItem: IConstructor): void;
-  building(): IConstructor | null;
+  available(): BuildItem[];
+  build(ItemToBuild: typeof Buildable): void;
+  building(): BuildItem | null;
   check(): void;
   cost(): BuildProgress;
+  getAvailable(Item: typeof Buildable): BuildItem;
   progress(): BuildProgress;
   remaining(): number;
   revalidate(): void;
@@ -28,12 +29,13 @@ export declare class CityBuild extends DataObject implements ICityBuild {
     ruleRegistry?: RuleRegistry
   );
   add(production: Yield): void;
-  available(): IConstructor[];
-  build(BuildItem: IConstructor): void;
-  building(): IConstructor | null;
-  check(): ICompletedBuildItem | null;
+  available(): BuildItem[];
+  build(ItemToBuild: typeof Buildable): void;
+  building(): BuildItem | null;
+  check(): Buildable | null;
   city(): City;
   cost(): BuildProgress;
+  getAvailable(Item: typeof Buildable): BuildItem;
   progress(): BuildProgress;
   remaining(): number;
   revalidate(): void;
