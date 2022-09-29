@@ -1,6 +1,6 @@
 {
   "name": "@civ-clone/core-city-build",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "main": "index.js",
   "repository": "git@github.com:civ-clone/core-city-build.git",
   "keywords": [
@@ -20,17 +20,17 @@
   },
   "devDependencies": {
     "@civ-clone/civ1-city": "github:civ-clone/civ1-city",
-    "@types/chai": "^4.0.0",
-    "@types/chai-spies": "^1.0.0",
-    "@types/mocha": "^8.0.0",
-    "@types/node": "^14.0.0",
-    "c8": "^7.0.0",
-    "chai": "^4.0.0",
-    "chai-spies": "^1.0.0",
-    "mocha": "^9.0.0",
-    "prettier": "^2.0.0",
-    "ts-mocha": "^9.0.0",
-    "typescript": "^4.0.0"
+    "@types/chai": "^4.0",
+    "@types/chai-spies": "^1.0",
+    "@types/mocha": "^9.0",
+    "@types/node": "^16.0",
+    "c8": "^7.0",
+    "chai": "^4.0",
+    "chai-spies": "^1.0",
+    "mocha": "^9.0",
+    "prettier": "^2.0",
+    "ts-mocha": "^9.0",
+    "typescript": "^4.0"
   },
   "dependencies": {
     "@civ-clone/core-city": "^0.1.0",

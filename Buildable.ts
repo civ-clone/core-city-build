@@ -11,10 +11,10 @@ import City from '@civ-clone/core-city/City';
 export interface IBuildable extends IDataObject {}
 
 export class Buildable extends DataObject {
-  public static build<T extends typeof Buildable>(
+  public static build(
     city: City,
     ruleRegistry: RuleRegistry = ruleRegistryInstance
-  ): InstanceType<T> {
+  ): Buildable {
     throw new TypeError(
       'createFromObject: Must be overridden in extending class'
     );

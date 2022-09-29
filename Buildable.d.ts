@@ -6,9 +6,6 @@ import { RuleRegistry } from '@civ-clone/core-rule/RuleRegistry';
 import City from '@civ-clone/core-city/City';
 export interface IBuildable extends IDataObject {}
 export declare class Buildable extends DataObject {
-  static build<T extends typeof Buildable>(
-    city: City,
-    ruleRegistry?: RuleRegistry
-  ): InstanceType<T>;
+  static build(city: City, ruleRegistry?: RuleRegistry): Buildable;
 }
 export default Buildable;
