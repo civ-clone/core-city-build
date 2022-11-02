@@ -2,15 +2,6 @@ import {
   AvailableCityBuildItemsRegistry,
   instance as availableCityBuildItemsRegistryInstance,
 } from './AvailableCityBuildItemsRegistry';
-import { Build, IBuildRegistry } from './Rules/Build';
-import {
-  BuildingCancelled,
-  IBuildingCancelledRegistry,
-} from './Rules/BulidingCancelled';
-import {
-  BuildingComplete,
-  IBuildingCompleteRegistry,
-} from './Rules/BulidingComplete';
 import {
   DataObject,
   IDataObject,
@@ -19,12 +10,15 @@ import {
   RuleRegistry,
   instance as ruleRegistryInstance,
 } from '@civ-clone/core-rule/RuleRegistry';
+import Build from './Rules/Build';
 import BuildItem from './BuildItem';
 import { BuildProgress } from './Yields';
 import Buildable from './Buildable';
+import BuildingCancelled from './Rules/BulidingCancelled';
+import BuildingComplete from './Rules/BulidingComplete';
 import City from '@civ-clone/core-city/City';
-import Yield from '@civ-clone/core-yield/Yield';
 import { IConstructor } from '@civ-clone/core-registry/Registry';
+import Yield from '@civ-clone/core-yield/Yield';
 
 export interface ICityBuild extends IDataObject {
   add(production: Yield): void;
@@ -73,7 +67,7 @@ export class CityBuild extends DataObject implements ICityBuild {
   }
 
   available(): BuildItem[] {
-    const buildRules = (this.#ruleRegistry as IBuildRegistry).get(Build);
+    const buildRules = this.#ruleRegistry.get(Build);
 
     // TODO: this still feels awkward... It's either this, or every rule has to be 'either it isn't this thing we're
     //  checking or it is and it meets the condition' or it's this. It'd be nice to be able to just filter the list in a
@@ -115,7 +109,6 @@ export class CityBuild extends DataObject implements ICityBuild {
     return this.#building;
   }
 
-  // TODO: do this via Rules
   check(): Buildable | null {
     if (this.#progress.value() >= this.#cost.value() && this.#building) {
       const built = this.#building.item().build(this.#city, this.#ruleRegistry);
@@ -124,11 +117,7 @@ export class CityBuild extends DataObject implements ICityBuild {
       this.#building = null;
       this.#cost.set(Infinity);
 
-      (this.#ruleRegistry as IBuildingCompleteRegistry).process(
-        BuildingComplete,
-        this,
-        built
-      );
+      this.#ruleRegistry.process(BuildingComplete, this, built);
 
       return built;
     }
@@ -163,10 +152,7 @@ export class CityBuild extends DataObject implements ICityBuild {
       this.#building = null;
       this.#cost.set(Infinity);
 
-      (this.#ruleRegistry as IBuildingCancelledRegistry).process(
-        BuildingCancelled,
-        this
-      );
+      this.#ruleRegistry.process(BuildingCancelled, this);
     }
   }
 }

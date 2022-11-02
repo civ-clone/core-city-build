@@ -4,17 +4,11 @@ import Buildable from '../Buildable';
 import City from '@civ-clone/core-city/City';
 import Criterion from '@civ-clone/core-rule/Criterion';
 import Effect from '@civ-clone/core-rule/Effect';
-import { IRuleRegistry } from '@civ-clone/core-rule/RuleRegistry';
 import Rule from '@civ-clone/core-rule/Rule';
 
-export type BuildCostArgs = [BuildItem, City | null];
-
-export class BuildCost extends Rule<BuildCostArgs, BuildCostItem> {}
+export class BuildCost extends Rule<[BuildItem, City | null], BuildCostItem> {}
 
 export default BuildCost;
-
-export interface IBuildCostRegistry
-  extends IRuleRegistry<BuildCost, BuildCostArgs, BuildCostItem> {}
 
 export const buildCost = (Item: typeof Buildable, cost: number): BuildCost[] =>
   buildCosts([[Item, cost]]);

@@ -1,7 +1,7 @@
+import { expect, use, spy } from 'chai';
 import { Build, IBuildCriterion } from '../Rules/Build';
 import AvailableCityBuildItemsRegistry from '../AvailableCityBuildItemsRegistry';
 import { BuildProgress } from '../Yields';
-import BuildItem from '../BuildItem';
 import Buildable from '../Buildable';
 import BuildingCancelled from '../Rules/BulidingCancelled';
 import BuildingComplete from '../Rules/BulidingComplete';
@@ -11,10 +11,7 @@ import Effect from '@civ-clone/core-rule/Effect';
 import RuleRegistry from '@civ-clone/core-rule/RuleRegistry';
 import { buildCost } from '../Rules/BuildCost';
 import { setUpCity } from '@civ-clone/civ1-city/tests/lib/setUpCity';
-import * as chai from 'chai';
 import * as spies from 'chai-spies';
-
-const { expect, use } = chai;
 
 use(spies);
 
@@ -41,11 +38,11 @@ describe('CityBuild', (): void => {
         availableBuildItemsRegistry,
         ruleRegistry
       ),
-      spy = chai.spy();
+      effectSpy = spy();
 
     ruleRegistry.register(
       new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
-      new BuildingCancelled(new Effect(spy))
+      new BuildingCancelled(new Effect(effectSpy))
     );
 
     expect(() => cityBuild.build(Unit as typeof Buildable)).throw(TypeError);
@@ -62,7 +59,7 @@ describe('CityBuild', (): void => {
 
     cityBuild.revalidate();
 
-    expect(spy).called.once;
+    expect(effectSpy).called.once;
   });
 
   it('should accept `BuildProgress` until the `cost` is reached', async (): Promise<void> => {
@@ -73,12 +70,12 @@ describe('CityBuild', (): void => {
         availableBuildItemsRegistry,
         ruleRegistry
       ),
-      spy = chai.spy();
+      effectSpy = spy();
 
     ruleRegistry.register(
       new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
       ...buildCost(Unit as typeof Buildable, 10),
-      new BuildingComplete(new Effect(spy))
+      new BuildingComplete(new Effect(effectSpy))
     );
 
     availableBuildItemsRegistry.register(Unit);
@@ -87,19 +84,19 @@ describe('CityBuild', (): void => {
 
     expect(cityBuild.cost().value()).equal(10);
 
-    expect(spy).not.called.once;
+    expect(effectSpy).not.called.once;
 
     cityBuild.add(new BuildProgress(5));
     cityBuild.check();
 
-    expect(spy).not.called;
+    expect(effectSpy).not.called;
 
     expect(cityBuild.remaining()).equal(5);
 
     cityBuild.add(new BuildProgress(5));
     cityBuild.check();
 
-    expect(spy).called.once;
+    expect(effectSpy).called.once;
   });
 
   it("should throw and error if a `Build` `Rule` doesn't return a `Criterion`", async (): Promise<void> => {

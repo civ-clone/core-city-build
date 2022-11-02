@@ -1,21 +1,23 @@
+import {
+  instance as ruleRegistryInstance,
+  RuleRegistry,
+} from '@civ-clone/core-rule/RuleRegistry';
 import BuildCost from './BuildCost';
 import BuildCostRule from './Rules/BuildCost';
 import Buildable from './Buildable';
 import City from '@civ-clone/core-city/City';
 import DataObject from '@civ-clone/core-data-object/DataObject';
-import { IBuildCostRegistry } from './Rules/BuildCost';
-import { instance as ruleRegistryInstance } from '@civ-clone/core-rule/RuleRegistry';
 
 export class BuildItem extends DataObject {
   #city: City | null;
   #cost: BuildCost = new BuildCost(Infinity);
   #item: typeof Buildable;
-  #ruleRegistry: IBuildCostRegistry;
+  #ruleRegistry: RuleRegistry;
 
   constructor(
     item: typeof Buildable,
     city: City | null = null,
-    ruleRegistry: IBuildCostRegistry = ruleRegistryInstance
+    ruleRegistry: RuleRegistry = ruleRegistryInstance
   ) {
     super();
 
@@ -27,8 +29,8 @@ export class BuildItem extends DataObject {
   }
 
   cost(): BuildCost {
-    if (Infinity === this.#cost.value()) {
-      const [cost] = (this.#ruleRegistry as IBuildCostRegistry).process(
+    if (!Number.isFinite(this.#cost.value())) {
+      const [cost] = this.#ruleRegistry.process(
         BuildCostRule,
         this,
         this.#city

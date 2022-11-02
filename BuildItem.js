@@ -13,10 +13,10 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
 var _BuildItem_city, _BuildItem_cost, _BuildItem_item, _BuildItem_ruleRegistry;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuildItem = void 0;
+const RuleRegistry_1 = require("@civ-clone/core-rule/RuleRegistry");
 const BuildCost_1 = require("./BuildCost");
 const BuildCost_2 = require("./Rules/BuildCost");
 const DataObject_1 = require("@civ-clone/core-data-object/DataObject");
-const RuleRegistry_1 = require("@civ-clone/core-rule/RuleRegistry");
 class BuildItem extends DataObject_1.default {
     constructor(item, city = null, ruleRegistry = RuleRegistry_1.instance) {
         super();
@@ -30,7 +30,7 @@ class BuildItem extends DataObject_1.default {
         this.addKey('cost', 'item');
     }
     cost() {
-        if (Infinity === __classPrivateFieldGet(this, _BuildItem_cost, "f").value()) {
+        if (!Number.isFinite(__classPrivateFieldGet(this, _BuildItem_cost, "f").value())) {
             const [cost] = __classPrivateFieldGet(this, _BuildItem_ruleRegistry, "f").process(BuildCost_2.default, this, __classPrivateFieldGet(this, _BuildItem_city, "f"));
             if (cost) {
                 __classPrivateFieldSet(this, _BuildItem_cost, cost, "f");

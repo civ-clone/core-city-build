@@ -14,13 +14,13 @@ var _CityBuild_availableCityBuildItemsRegistry, _CityBuild_building, _CityBuild_
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CityBuild = void 0;
 const AvailableCityBuildItemsRegistry_1 = require("./AvailableCityBuildItemsRegistry");
-const Build_1 = require("./Rules/Build");
-const BulidingCancelled_1 = require("./Rules/BulidingCancelled");
-const BulidingComplete_1 = require("./Rules/BulidingComplete");
 const DataObject_1 = require("@civ-clone/core-data-object/DataObject");
 const RuleRegistry_1 = require("@civ-clone/core-rule/RuleRegistry");
+const Build_1 = require("./Rules/Build");
 const BuildItem_1 = require("./BuildItem");
 const Yields_1 = require("./Yields");
+const BulidingCancelled_1 = require("./Rules/BulidingCancelled");
+const BulidingComplete_1 = require("./Rules/BulidingComplete");
 class CityBuild extends DataObject_1.DataObject {
     constructor(city, availableCityBuildItemsRegistry = AvailableCityBuildItemsRegistry_1.instance, ruleRegistry = RuleRegistry_1.instance) {
         super();
@@ -39,7 +39,7 @@ class CityBuild extends DataObject_1.DataObject {
         __classPrivateFieldGet(this, _CityBuild_progress, "f").add(production);
     }
     available() {
-        const buildRules = __classPrivateFieldGet(this, _CityBuild_ruleRegistry, "f").get(Build_1.Build);
+        const buildRules = __classPrivateFieldGet(this, _CityBuild_ruleRegistry, "f").get(Build_1.default);
         // TODO: this still feels awkward... It's either this, or every rule has to be 'either it isn't this thing we're
         //  checking or it is and it meets the condition' or it's this. It'd be nice to be able to just filter the list in a
         //  more straightforward way...
@@ -61,14 +61,13 @@ class CityBuild extends DataObject_1.DataObject {
     building() {
         return __classPrivateFieldGet(this, _CityBuild_building, "f");
     }
-    // TODO: do this via Rules
     check() {
         if (__classPrivateFieldGet(this, _CityBuild_progress, "f").value() >= __classPrivateFieldGet(this, _CityBuild_cost, "f").value() && __classPrivateFieldGet(this, _CityBuild_building, "f")) {
             const built = __classPrivateFieldGet(this, _CityBuild_building, "f").item().build(__classPrivateFieldGet(this, _CityBuild_city, "f"), __classPrivateFieldGet(this, _CityBuild_ruleRegistry, "f"));
             __classPrivateFieldGet(this, _CityBuild_progress, "f").set(0);
             __classPrivateFieldSet(this, _CityBuild_building, null, "f");
             __classPrivateFieldGet(this, _CityBuild_cost, "f").set(Infinity);
-            __classPrivateFieldGet(this, _CityBuild_ruleRegistry, "f").process(BulidingComplete_1.BuildingComplete, this, built);
+            __classPrivateFieldGet(this, _CityBuild_ruleRegistry, "f").process(BulidingComplete_1.default, this, built);
             return built;
         }
         return null;
@@ -92,7 +91,7 @@ class CityBuild extends DataObject_1.DataObject {
         if (__classPrivateFieldGet(this, _CityBuild_building, "f") && !this.getAvailable(__classPrivateFieldGet(this, _CityBuild_building, "f").item())) {
             __classPrivateFieldSet(this, _CityBuild_building, null, "f");
             __classPrivateFieldGet(this, _CityBuild_cost, "f").set(Infinity);
-            __classPrivateFieldGet(this, _CityBuild_ruleRegistry, "f").process(BulidingCancelled_1.BuildingCancelled, this);
+            __classPrivateFieldGet(this, _CityBuild_ruleRegistry, "f").process(BulidingCancelled_1.default, this);
         }
     }
 }
