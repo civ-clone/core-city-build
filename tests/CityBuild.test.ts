@@ -45,13 +45,11 @@ describe('CityBuild', (): void => {
       new BuildingCancelled(new Effect(effectSpy))
     );
 
-    expect(() => cityBuild.build(Unit as typeof Buildable)).throw(TypeError);
+    expect(() => cityBuild.build(Unit)).throw(TypeError);
 
     availableBuildItemsRegistry.register(Unit);
 
-    expect(() => cityBuild.build(Unit as typeof Buildable)).not.throw(
-      TypeError
-    );
+    expect(() => cityBuild.build(Unit)).not.throw(TypeError);
     expect(cityBuild.cost().value()).not.finite;
     expect(cityBuild.building()!.item()).equal(Unit);
 
@@ -74,13 +72,13 @@ describe('CityBuild', (): void => {
 
     ruleRegistry.register(
       new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
-      ...buildCost(Unit as typeof Buildable, 10),
+      ...buildCost(Unit, 10),
       new BuildingComplete(new Effect(effectSpy))
     );
 
     availableBuildItemsRegistry.register(Unit);
 
-    cityBuild.build(Unit as typeof Buildable);
+    cityBuild.build(Unit);
 
     expect(cityBuild.cost().value()).equal(10);
 
@@ -114,7 +112,7 @@ describe('CityBuild', (): void => {
 
     availableBuildItemsRegistry.register(Unit);
 
-    expect(() => cityBuild.build(Unit as typeof Buildable)).throw(TypeError);
+    expect(() => cityBuild.build(Unit)).throw(TypeError);
   });
 
   it("should remove an item that's no longer available on `revalidate()`", async (): Promise<void> => {
@@ -128,12 +126,12 @@ describe('CityBuild', (): void => {
 
     ruleRegistry.register(
       new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
-      ...buildCost(Unit as typeof Buildable, 10)
+      ...buildCost(Unit, 10)
     );
 
     availableBuildItemsRegistry.register(Unit);
 
-    cityBuild.build(Unit as typeof Buildable);
+    cityBuild.build(Unit);
 
     expect(cityBuild.building()!.item()).equal(Unit);
 

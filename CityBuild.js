@@ -43,12 +43,9 @@ class CityBuild extends DataObject_1.DataObject {
         // TODO: this still feels awkward... It's either this, or every rule has to be 'either it isn't this thing we're
         //  checking or it is and it meets the condition' or it's this. It'd be nice to be able to just filter the list in a
         //  more straightforward way...
-        //  Also, yuck. The mixture of `typeof Buildable` and `IConstructor<Buildable>` sucks here...
         return __classPrivateFieldGet(this, _CityBuild_availableCityBuildItemsRegistry, "f").filter((BuildItem) => buildRules
             .filter((rule) => rule.validate(this.city(), BuildItem))
-            .every((rule) => rule
-            .process(this.city(), BuildItem)
-            .validate())).map((available) => new BuildItem_1.default(available, this.city(), __classPrivateFieldGet(this, _CityBuild_ruleRegistry, "f")));
+            .every((rule) => rule.process(this.city(), BuildItem).validate())).map((available) => new BuildItem_1.default(available, this.city(), __classPrivateFieldGet(this, _CityBuild_ruleRegistry, "f")));
     }
     build(ItemToBuild) {
         const buildItem = this.getAvailable(ItemToBuild);

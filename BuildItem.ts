@@ -4,18 +4,18 @@ import {
 } from '@civ-clone/core-rule/RuleRegistry';
 import BuildCost from './BuildCost';
 import BuildCostRule from './Rules/BuildCost';
-import Buildable from './Buildable';
 import City from '@civ-clone/core-city/City';
 import DataObject from '@civ-clone/core-data-object/DataObject';
+import { IBuildable as Buildable } from './Buildable';
 
 export class BuildItem extends DataObject {
   #city: City | null;
   #cost: BuildCost = new BuildCost(Infinity);
-  #item: typeof Buildable;
+  #item: Buildable;
   #ruleRegistry: RuleRegistry;
 
   constructor(
-    item: typeof Buildable,
+    item: Buildable,
     city: City | null = null,
     ruleRegistry: RuleRegistry = ruleRegistryInstance
   ) {
@@ -44,7 +44,7 @@ export class BuildItem extends DataObject {
     return this.#cost;
   }
 
-  item(): typeof Buildable {
+  item(): Buildable {
     return this.#item;
   }
 }

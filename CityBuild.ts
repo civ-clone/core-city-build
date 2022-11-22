@@ -13,7 +13,7 @@ import {
 import Build from './Rules/Build';
 import BuildItem from './BuildItem';
 import { BuildProgress } from './Yields';
-import Buildable from './Buildable';
+import { IBuildable as Buildable } from './Buildable';
 import BuildingCancelled from './Rules/BulidingCancelled';
 import BuildingComplete from './Rules/BulidingComplete';
 import City from '@civ-clone/core-city/City';
@@ -23,11 +23,11 @@ import Yield from '@civ-clone/core-yield/Yield';
 export interface ICityBuild extends IDataObject {
   add(production: Yield): void;
   available(): BuildItem[];
-  build(ItemToBuild: typeof Buildable): void;
+  build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
   check(): void;
   cost(): BuildProgress;
-  getAvailable(Item: typeof Buildable): BuildItem;
+  getAvailable(Item: Buildable): BuildItem;
   progress(): BuildProgress;
   remaining(): number;
   revalidate(): void;
@@ -72,26 +72,23 @@ export class CityBuild extends DataObject implements ICityBuild {
     // TODO: this still feels awkward... It's either this, or every rule has to be 'either it isn't this thing we're
     //  checking or it is and it meets the condition' or it's this. It'd be nice to be able to just filter the list in a
     //  more straightforward way...
-    //  Also, yuck. The mixture of `typeof Buildable` and `IConstructor<Buildable>` sucks here...
     return (
       this.#availableCityBuildItemsRegistry.filter(
-        (BuildItem: IConstructor<Buildable>): boolean =>
+        (BuildItem: Buildable): boolean =>
           buildRules
             .filter((rule: Build): boolean =>
-              rule.validate(this.city(), BuildItem as typeof Buildable)
+              rule.validate(this.city(), BuildItem)
             )
             .every((rule: Build): boolean =>
-              rule
-                .process(this.city(), BuildItem as typeof Buildable)
-                .validate()
+              rule.process(this.city(), BuildItem).validate()
             )
-      ) as typeof Buildable[]
+      ) as Buildable[]
     ).map(
       (available) => new BuildItem(available, this.city(), this.#ruleRegistry)
     );
   }
 
-  build(ItemToBuild: typeof Buildable): void {
+  build(ItemToBuild: Buildable): void {
     const buildItem = this.getAvailable(ItemToBuild);
 
     if (!buildItem) {
@@ -109,7 +106,7 @@ export class CityBuild extends DataObject implements ICityBuild {
     return this.#building;
   }
 
-  check(): Buildable | null {
+  check(): IDataObject | null {
     if (this.#progress.value() >= this.#cost.value() && this.#building) {
       const built = this.#building.item().build(this.#city, this.#ruleRegistry);
 
@@ -133,7 +130,7 @@ export class CityBuild extends DataObject implements ICityBuild {
     return this.#cost;
   }
 
-  getAvailable(Item: typeof Buildable): BuildItem {
+  getAvailable(Item: Buildable): BuildItem {
     return this.available().filter(
       (available: BuildItem): boolean => available.item() === Item
     )[0];

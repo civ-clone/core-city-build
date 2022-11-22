@@ -7,8 +7,13 @@ import {
   instance as ruleRegistryInstance,
 } from '@civ-clone/core-rule/RuleRegistry';
 import City from '@civ-clone/core-city/City';
+import { IConstructor } from '@civ-clone/core-registry/Registry';
 
-export interface IBuildable extends IDataObject {}
+export interface BuildableInstance extends IDataObject {}
+
+export interface IBuildable extends IConstructor<BuildableInstance> {
+  build(city: City, ruleRegistry?: RuleRegistry): BuildableInstance;
+}
 
 export class Buildable extends DataObject {
   public static build(
