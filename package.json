@@ -1,6 +1,6 @@
 {
   "name": "@civ-clone/core-city-build",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "main": "index.js",
   "repository": "git@github.com:civ-clone/core-city-build.git",
   "keywords": [
@@ -20,6 +20,8 @@
   },
   "devDependencies": {
     "@civ-clone/civ1-city": "github:civ-clone/civ1-city",
+    "@civ-clone/civ1-city-improvement": "github:civ-clone/civ1-city-improvement",
+    "@civ-clone/civ1-unit": "github:civ-clone/civ1-unit",
     "@types/chai": "^4.0",
     "@types/chai-spies": "^1.0",
     "@types/mocha": "^9.0",

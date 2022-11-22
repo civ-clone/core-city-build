@@ -1,7 +1,10 @@
+import { BuildableInstance } from '../Buildable';
 import CityBuild from '../CityBuild';
 import Rule from '@civ-clone/core-rule/Rule';
-import Buildable from '../Buildable';
 
-export class BuildingComplete extends Rule<[CityBuild, Buildable], void> {}
+export class BuildingComplete extends Rule<
+  [CityBuild, BuildableInstance],
+  void
+> {}
 
 export default BuildingComplete;

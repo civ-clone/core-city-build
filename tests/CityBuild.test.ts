@@ -1,5 +1,11 @@
-import { expect, use, spy } from 'chai';
 import { Build, IBuildCriterion } from '../Rules/Build';
+import { Horseman, Spearman, Warrior } from '@civ-clone/civ1-unit/Units';
+import {
+  Barracks,
+  Granary,
+  Temple,
+} from '@civ-clone/civ1-city-improvement/CityImprovements';
+import { expect, use, spy } from 'chai';
 import AvailableCityBuildItemsRegistry from '../AvailableCityBuildItemsRegistry';
 import { BuildProgress } from '../Yields';
 import Buildable from '../Buildable';
@@ -21,6 +27,19 @@ describe('CityBuild', (): void => {
       return new Unit();
     }
   }
+
+  it('should be possible to register well defined items', async () => {
+    const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry();
+
+    availableBuildItemsRegistry.register(
+      Horseman,
+      Spearman,
+      Warrior,
+      Barracks,
+      Granary,
+      Temple
+    );
+  });
 
   it('should have expected initial state', async (): Promise<void> => {
     const cityBuild = new CityBuild(await setUpCity());
@@ -45,13 +64,11 @@ describe('CityBuild', (): void => {
       new BuildingCancelled(new Effect(effectSpy))
     );
 
-    expect(() => cityBuild.build(Unit as typeof Buildable)).throw(TypeError);
+    expect(() => cityBuild.build(Unit)).throw(TypeError);
 
     availableBuildItemsRegistry.register(Unit);
 
-    expect(() => cityBuild.build(Unit as typeof Buildable)).not.throw(
-      TypeError
-    );
+    expect(() => cityBuild.build(Unit)).not.throw(TypeError);
     expect(cityBuild.cost().value()).not.finite;
     expect(cityBuild.building()!.item()).equal(Unit);
 
@@ -74,13 +91,13 @@ describe('CityBuild', (): void => {
 
     ruleRegistry.register(
       new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
-      ...buildCost(Unit as typeof Buildable, 10),
+      ...buildCost(Unit, 10),
       new BuildingComplete(new Effect(effectSpy))
     );
 
     availableBuildItemsRegistry.register(Unit);
 
-    cityBuild.build(Unit as typeof Buildable);
+    cityBuild.build(Unit);
 
     expect(cityBuild.cost().value()).equal(10);
 
@@ -114,7 +131,7 @@ describe('CityBuild', (): void => {
 
     availableBuildItemsRegistry.register(Unit);
 
-    expect(() => cityBuild.build(Unit as typeof Buildable)).throw(TypeError);
+    expect(() => cityBuild.build(Unit)).throw(TypeError);
   });
 
   it("should remove an item that's no longer available on `revalidate()`", async (): Promise<void> => {
@@ -128,12 +145,12 @@ describe('CityBuild', (): void => {
 
     ruleRegistry.register(
       new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
-      ...buildCost(Unit as typeof Buildable, 10)
+      ...buildCost(Unit, 10)
     );
 
     availableBuildItemsRegistry.register(Unit);
 
-    cityBuild.build(Unit as typeof Buildable);
+    cityBuild.build(Unit);
 
     expect(cityBuild.building()!.item()).equal(Unit);
 

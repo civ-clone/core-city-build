@@ -1,15 +1,21 @@
 import {
-  ConstructorRegistry,
-  IConstructorRegistry,
-} from '@civ-clone/core-registry/ConstructorRegistry';
-import Buildable from './Buildable';
+  EntityRegistry,
+  IEntityRegistry,
+} from '@civ-clone/core-registry/EntityRegistry';
+import { IBuildable } from './Buildable';
 
 export class AvailableCityBuildItemsRegistry
-  extends ConstructorRegistry<Buildable>
-  implements IConstructorRegistry<Buildable>
+  extends EntityRegistry<IBuildable>
+  implements IEntityRegistry<IBuildable>
 {
   constructor() {
-    super(Buildable);
+    // All `Buildable`s are `Function`s so this is sufficient although less than ideal
+    // @ts-ignore
+    super(Function);
+  }
+
+  accepts(entity: IBuildable): boolean {
+    return 'build' in entity;
   }
 }
 
