@@ -34,12 +34,12 @@ export interface ICityBuild extends IDataObject {
 }
 
 export class CityBuild extends DataObject implements ICityBuild {
-  #availableCityBuildItemsRegistry: AvailableCityBuildItemsRegistry;
-  #building: BuildItem | null = null;
-  #city: City;
-  #cost: BuildProgress = new BuildProgress(Infinity);
-  #progress: BuildProgress = new BuildProgress();
-  #ruleRegistry: RuleRegistry;
+  private _availableCityBuildItemsRegistry: AvailableCityBuildItemsRegistry;
+  private _building: BuildItem | null = null;
+  private _city: City;
+  private _cost: BuildProgress = new BuildProgress(Infinity);
+  private _progress: BuildProgress = new BuildProgress();
+  private _ruleRegistry: RuleRegistry;
 
   constructor(
     city: City,
@@ -48,9 +48,9 @@ export class CityBuild extends DataObject implements ICityBuild {
   ) {
     super();
 
-    this.#availableCityBuildItemsRegistry = availableCityBuildItemsRegistry;
-    this.#city = city;
-    this.#ruleRegistry = ruleRegistry;
+    this._availableCityBuildItemsRegistry = availableCityBuildItemsRegistry;
+    this._city = city;
+    this._ruleRegistry = ruleRegistry;
 
     this.addKey(
       'available',
@@ -63,17 +63,17 @@ export class CityBuild extends DataObject implements ICityBuild {
   }
 
   add(production: Yield): void {
-    this.#progress.add(production);
+    this._progress.add(production);
   }
 
   available(): BuildItem[] {
-    const buildRules = this.#ruleRegistry.get(Build);
+    const buildRules = this._ruleRegistry.get(Build);
 
     // TODO: this still feels awkward... It's either this, or every rule has to be 'either it isn't this thing we're
     //  checking or it is and it meets the condition' or it's this. It'd be nice to be able to just filter the list in a
     //  more straightforward way...
     return (
-      this.#availableCityBuildItemsRegistry.filter(
+      this._availableCityBuildItemsRegistry.filter(
         (BuildItem: Buildable): boolean =>
           buildRules
             .filter((rule: Build): boolean =>
@@ -84,7 +84,7 @@ export class CityBuild extends DataObject implements ICityBuild {
             )
       ) as Buildable[]
     ).map(
-      (available) => new BuildItem(available, this.city(), this.#ruleRegistry)
+      (available) => new BuildItem(available, this.city(), this._ruleRegistry)
     );
   }
 
@@ -97,24 +97,24 @@ export class CityBuild extends DataObject implements ICityBuild {
       );
     }
 
-    this.#building = buildItem;
+    this._building = buildItem;
 
-    this.#cost.set(this.#building.cost().value());
+    this._cost.set(this._building.cost().value());
   }
 
   building(): BuildItem | null {
-    return this.#building;
+    return this._building;
   }
 
   check(): IDataObject | null {
-    if (this.#progress.value() >= this.#cost.value() && this.#building) {
-      const built = this.#building.item().build(this.#city, this.#ruleRegistry);
+    if (this._progress.value() >= this._cost.value() && this._building) {
+      const built = this._building.item().build(this._city, this._ruleRegistry);
 
-      this.#progress.set(0);
-      this.#building = null;
-      this.#cost.set(Infinity);
+      this._progress.set(0);
+      this._building = null;
+      this._cost.set(Infinity);
 
-      this.#ruleRegistry.process(BuildingComplete, this, built);
+      this._ruleRegistry.process(BuildingComplete, this, built);
 
       return built;
     }
@@ -123,11 +123,11 @@ export class CityBuild extends DataObject implements ICityBuild {
   }
 
   city(): City {
-    return this.#city;
+    return this._city;
   }
 
   cost(): BuildProgress {
-    return this.#cost;
+    return this._cost;
   }
 
   getAvailable(Item: Buildable): BuildItem {
@@ -137,19 +137,19 @@ export class CityBuild extends DataObject implements ICityBuild {
   }
 
   progress(): BuildProgress {
-    return this.#progress;
+    return this._progress;
   }
 
   remaining(): number {
-    return this.#cost.value() - this.#progress.value();
+    return this._cost.value() - this._progress.value();
   }
 
   revalidate(): void {
-    if (this.#building && !this.getAvailable(this.#building.item())) {
-      this.#building = null;
-      this.#cost.set(Infinity);
+    if (this._building && !this.getAvailable(this._building.item())) {
+      this._building = null;
+      this._cost.set(Infinity);
 
-      this.#ruleRegistry.process(BuildingCancelled, this);
+      this._ruleRegistry.process(BuildingCancelled, this);
     }
   }
 }

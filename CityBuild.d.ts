@@ -22,7 +22,12 @@ export interface ICityBuild extends IDataObject {
   revalidate(): void;
 }
 export declare class CityBuild extends DataObject implements ICityBuild {
-  #private;
+  private _availableCityBuildItemsRegistry;
+  private _building;
+  private _city;
+  private _cost;
+  private _progress;
+  private _ruleRegistry;
   constructor(
     city: City,
     availableCityBuildItemsRegistry?: AvailableCityBuildItemsRegistry,

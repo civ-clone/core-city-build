@@ -2,18 +2,18 @@ import DataObject from '@civ-clone/core-data-object/DataObject';
 
 // TODO: `BuildCost` could be something other than `Production` (e.g. `Faith`) but omit that need for now.
 export class BuildCost extends DataObject {
-  #value: number;
+  private _value: number;
 
   constructor(value: number) {
     super();
 
     this.addKey('value');
 
-    this.#value = value;
+    this._value = value;
   }
 
   value(): number {
-    return this.#value;
+    return this._value;
   }
 }
 

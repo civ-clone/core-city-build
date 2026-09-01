@@ -1,6 +1,6 @@
 import DataObject from '@civ-clone/core-data-object/DataObject';
 export declare class BuildCost extends DataObject {
-  #private;
+  private _value;
   constructor(value: number);
   value(): number;
 }

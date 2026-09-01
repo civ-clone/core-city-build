@@ -9,10 +9,10 @@ import DataObject from '@civ-clone/core-data-object/DataObject';
 import { IBuildable as Buildable } from './Buildable';
 
 export class BuildItem extends DataObject {
-  #city: City | null;
-  #cost: BuildCost = new BuildCost(Infinity);
-  #item: Buildable;
-  #ruleRegistry: RuleRegistry;
+  private _city: City | null;
+  private _cost: BuildCost = new BuildCost(Infinity);
+  private _item: Buildable;
+  private _ruleRegistry: RuleRegistry;
 
   constructor(
     item: Buildable,
@@ -21,31 +21,31 @@ export class BuildItem extends DataObject {
   ) {
     super();
 
-    this.#item = item;
-    this.#city = city;
-    this.#ruleRegistry = ruleRegistry;
+    this._item = item;
+    this._city = city;
+    this._ruleRegistry = ruleRegistry;
 
     this.addKey('cost', 'item');
   }
 
   cost(): BuildCost {
-    if (!Number.isFinite(this.#cost.value())) {
-      const [cost] = this.#ruleRegistry.process(
+    if (!Number.isFinite(this._cost.value())) {
+      const [cost] = this._ruleRegistry.process(
         BuildCostRule,
         this,
-        this.#city
+        this._city
       );
 
       if (cost) {
-        this.#cost = cost;
+        this._cost = cost;
       }
     }
 
-    return this.#cost;
+    return this._cost;
   }
 
   item(): Buildable {
-    return this.#item;
+    return this._item;
   }
 }
 
