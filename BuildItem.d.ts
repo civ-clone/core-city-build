@@ -4,6 +4,7 @@ import City from '@civ-clone/core-city/City';
 import DataObject from '@civ-clone/core-data-object/DataObject';
 import { IBuildable as Buildable } from './Buildable';
 export declare class BuildItem extends DataObject {
+  static readonly transient: string[];
   private _city;
   private _cost;
   private _item;

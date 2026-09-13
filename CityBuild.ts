@@ -34,6 +34,10 @@ export interface ICityBuild extends IDataObject {
 }
 
 export class CityBuild extends DataObject implements ICityBuild {
+  static readonly transient = [
+    '_availableCityBuildItemsRegistry',
+    '_ruleRegistry',
+  ];
   private _availableCityBuildItemsRegistry: AvailableCityBuildItemsRegistry;
   private _building: BuildItem | null = null;
   private _city: City;

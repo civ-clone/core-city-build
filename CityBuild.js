@@ -78,5 +78,9 @@ class CityBuild extends DataObject_1.DataObject {
     }
 }
 exports.CityBuild = CityBuild;
+CityBuild.transient = [
+    '_availableCityBuildItemsRegistry',
+    '_ruleRegistry',
+];
 exports.default = CityBuild;
 //# sourceMappingURL=CityBuild.js.map

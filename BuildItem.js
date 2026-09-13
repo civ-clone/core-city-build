@@ -28,5 +28,6 @@ class BuildItem extends DataObject_1.default {
     }
 }
 exports.BuildItem = BuildItem;
+BuildItem.transient = ['_ruleRegistry'];
 exports.default = BuildItem;
 //# sourceMappingURL=BuildItem.js.map

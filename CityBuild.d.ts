@@ -22,6 +22,7 @@ export interface ICityBuild extends IDataObject {
   revalidate(): void;
 }
 export declare class CityBuild extends DataObject implements ICityBuild {
+  static readonly transient: string[];
   private _availableCityBuildItemsRegistry;
   private _building;
   private _city;

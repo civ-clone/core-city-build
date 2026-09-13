@@ -9,6 +9,7 @@ import DataObject from '@civ-clone/core-data-object/DataObject';
 import { IBuildable as Buildable } from './Buildable';
 
 export class BuildItem extends DataObject {
+  static readonly transient = ['_ruleRegistry'];
   private _city: City | null;
   private _cost: BuildCost = new BuildCost(Infinity);
   private _item: Buildable;
