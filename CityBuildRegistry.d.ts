@@ -11,6 +11,7 @@ export declare class CityBuildRegistry
   extends EntityRegistry<CityBuild>
   implements ICityBuildRegistry
 {
+  private _byCity;
   constructor();
   getByCity(city: City): CityBuild;
 }
