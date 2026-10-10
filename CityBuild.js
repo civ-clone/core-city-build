@@ -12,16 +12,23 @@ const BulidingComplete_1 = require("./Rules/BulidingComplete");
 class CityBuild extends DataObject_1.DataObject {
     constructor(city, availableCityBuildItemsRegistry = AvailableCityBuildItemsRegistry_1.instance, ruleRegistry = RuleRegistry_1.instance) {
         super();
+        // Whether the city chooses what it builds next by itself (civ-clone/web-renderer#194). Nothing here acts on it: the
+        //  ruleset's `BuildingComplete` and `BuildingCancelled` rules do, with `lib/autoBuild`.
+        this._auto = false;
         this._building = null;
         this._cost = new Yields_1.BuildProgress(Infinity);
         this._progress = new Yields_1.BuildProgress();
         this._availableCityBuildItemsRegistry = availableCityBuildItemsRegistry;
         this._city = city;
         this._ruleRegistry = ruleRegistry;
-        this.addKey('available', 'building', 'city', 'cost', 'progress', 'remaining');
+        this.addKey('auto', 'available', 'building', 'city', 'cost', 'progress', 'remaining');
     }
     add(production) {
         this._progress.add(production);
+    }
+    auto() {
+        // A build restored from a save made before Auto existed has no `_auto` at all.
+        return this._auto === true;
     }
     available() {
         const buildRules = this._ruleRegistry.get(Build_1.default);
@@ -75,6 +82,9 @@ class CityBuild extends DataObject_1.DataObject {
             this._cost.set(Infinity);
             this._ruleRegistry.process(BulidingCancelled_1.default, this);
         }
+    }
+    setAuto(auto) {
+        this._auto = auto;
     }
 }
 exports.CityBuild = CityBuild;

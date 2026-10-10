@@ -22,6 +22,7 @@ import Yield from '@civ-clone/core-yield/Yield';
 
 export interface ICityBuild extends IDataObject {
   add(production: Yield): void;
+  auto(): boolean;
   available(): BuildItem[];
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
@@ -31,6 +32,7 @@ export interface ICityBuild extends IDataObject {
   progress(): BuildProgress;
   remaining(): number;
   revalidate(): void;
+  setAuto(auto: boolean): void;
 }
 
 export class CityBuild extends DataObject implements ICityBuild {
@@ -38,6 +40,9 @@ export class CityBuild extends DataObject implements ICityBuild {
     '_availableCityBuildItemsRegistry',
     '_ruleRegistry',
   ];
+  // Whether the city chooses what it builds next by itself (civ-clone/web-renderer#194). Nothing here acts on it: the
+  //  ruleset's `BuildingComplete` and `BuildingCancelled` rules do, with `lib/autoBuild`.
+  private _auto: boolean = false;
   private _availableCityBuildItemsRegistry: AvailableCityBuildItemsRegistry;
   private _building: BuildItem | null = null;
   private _city: City;
@@ -57,6 +62,7 @@ export class CityBuild extends DataObject implements ICityBuild {
     this._ruleRegistry = ruleRegistry;
 
     this.addKey(
+      'auto',
       'available',
       'building',
       'city',
@@ -68,6 +74,11 @@ export class CityBuild extends DataObject implements ICityBuild {
 
   add(production: Yield): void {
     this._progress.add(production);
+  }
+
+  auto(): boolean {
+    // A build restored from a save made before Auto existed has no `_auto` at all.
+    return this._auto === true;
   }
 
   available(): BuildItem[] {
@@ -155,6 +166,10 @@ export class CityBuild extends DataObject implements ICityBuild {
 
       this._ruleRegistry.process(BuildingCancelled, this);
     }
+  }
+
+  setAuto(auto: boolean): void {
+    this._auto = auto;
   }
 }
 

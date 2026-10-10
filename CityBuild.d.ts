@@ -11,6 +11,7 @@ import City from '@civ-clone/core-city/City';
 import Yield from '@civ-clone/core-yield/Yield';
 export interface ICityBuild extends IDataObject {
   add(production: Yield): void;
+  auto(): boolean;
   available(): BuildItem[];
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
@@ -20,9 +21,11 @@ export interface ICityBuild extends IDataObject {
   progress(): BuildProgress;
   remaining(): number;
   revalidate(): void;
+  setAuto(auto: boolean): void;
 }
 export declare class CityBuild extends DataObject implements ICityBuild {
   static readonly transient: string[];
+  private _auto;
   private _availableCityBuildItemsRegistry;
   private _building;
   private _city;
@@ -35,6 +38,7 @@ export declare class CityBuild extends DataObject implements ICityBuild {
     ruleRegistry?: RuleRegistry
   );
   add(production: Yield): void;
+  auto(): boolean;
   available(): BuildItem[];
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
@@ -45,5 +49,6 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   progress(): BuildProgress;
   remaining(): number;
   revalidate(): void;
+  setAuto(auto: boolean): void;
 }
 export default CityBuild;
