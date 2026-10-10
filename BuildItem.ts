@@ -3,6 +3,7 @@ import {
   RuleRegistry,
 } from '@civ-clone/core-rule/RuleRegistry';
 import BuildCost from './BuildCost';
+import BuildCostModifier from './Rules/BuildCostModifier';
 import BuildCostRule from './Rules/BuildCost';
 import City from '@civ-clone/core-city/City';
 import DataObject from '@civ-clone/core-data-object/DataObject';
@@ -38,7 +39,7 @@ export class BuildItem extends DataObject {
       );
 
       if (cost) {
-        this._cost = cost;
+        this._cost = this.modify(cost);
       }
     }
 
@@ -47,6 +48,24 @@ export class BuildItem extends DataObject {
 
   item(): Buildable {
     return this._item;
+  }
+
+  // Validated against the cost each modifier would receive: a criterion sees the same value its effect does.
+  private modify(cost: BuildCost): BuildCost {
+    const modifiers = this._ruleRegistry.get(BuildCostModifier);
+    if (modifiers.length === 0) {
+      return cost;
+    }
+
+    return new BuildCost(
+      modifiers.reduce(
+        (value: number, modifier: BuildCostModifier): number =>
+          modifier.validate(this, this._city, value)
+            ? modifier.process(this, this._city, value) ?? value
+            : value,
+        cost.value()
+      )
+    );
   }
 }
 
