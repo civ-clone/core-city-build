@@ -10,6 +10,7 @@ import AvailableCityBuildItemsRegistry from '../AvailableCityBuildItemsRegistry'
 import { BuildProgress } from '../Yields';
 import Buildable from '../Buildable';
 import BuildingCancelled from '../Rules/BulidingCancelled';
+import BuildCostModifier from '../Rules/BuildCostModifier';
 import BuildingComplete from '../Rules/BulidingComplete';
 import CityBuild from '../CityBuild';
 import Criterion from '@civ-clone/core-rule/Criterion';
@@ -114,6 +115,39 @@ describe('CityBuild', (): void => {
     cityBuild.check();
 
     expect(effectSpy).called.once;
+  });
+
+  it('should apply each `BuildCostModifier` in turn to the cost', async (): Promise<void> => {
+    const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+      ruleRegistry = new RuleRegistry(),
+      city = await setUpCity(),
+      cityBuild = new CityBuild(
+        city,
+        availableBuildItemsRegistry,
+        ruleRegistry
+      );
+
+    ruleRegistry.register(
+      new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
+      ...buildCost(Unit, 10),
+      new BuildCostModifier(
+        new Effect((buildItem, buildCity, cost: number): number => cost * 2)
+      ),
+      new BuildCostModifier(
+        new Criterion((buildItem, buildCity, cost: number) => cost === 20),
+        new Effect((buildItem, buildCity, cost: number): number => cost + 1)
+      ),
+      new BuildCostModifier(
+        new Criterion((buildItem, buildCity) => buildCity !== city),
+        new Effect((): number => 0)
+      )
+    );
+
+    availableBuildItemsRegistry.register(Unit);
+
+    cityBuild.build(Unit);
+
+    expect(cityBuild.cost().value()).equal(21);
   });
 
   it("should throw and error if a `Build` `Rule` doesn't return a `Criterion`", async (): Promise<void> => {

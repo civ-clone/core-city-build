@@ -12,5 +12,6 @@ export declare class BuildItem extends DataObject {
   constructor(item: Buildable, city?: City | null, ruleRegistry?: RuleRegistry);
   cost(): BuildCost;
   item(): Buildable;
+  private modify;
 }
 export default BuildItem;
