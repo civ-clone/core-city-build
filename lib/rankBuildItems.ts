@@ -13,6 +13,11 @@ export interface RankedBuildItem {
 //  matches added together, times its `weight` (a leader's preferences, 1 for none), highest first. Items scoring 0 or
 //  less are left out. Ties go to the cheaper item, then by name, so the same city always ranks the same way. A caller
 //  that has the city's `yields` already passes them in.
+// Not `localeCompare`, which depends on the host's locale: every client must
+// break a tie the same way.
+const compareNames = (a: string, b: string): number =>
+  a < b ? -1 : a > b ? 1 : 0;
+
 export const rankBuildItems = (
   cityBuild: CityBuild,
   ruleRegistry: RuleRegistry,
@@ -47,7 +52,7 @@ export const rankBuildItems = (
       (a: RankedBuildItem, b: RankedBuildItem): number =>
         b.score - a.score ||
         a.buildItem.cost().value() - b.buildItem.cost().value() ||
-        a.buildItem.item().name.localeCompare(b.buildItem.item().name)
+        compareNames(a.buildItem.item().name, b.buildItem.item().name)
     );
 };
 
