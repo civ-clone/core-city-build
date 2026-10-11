@@ -19,7 +19,10 @@ describe('autoBuild', (): void => {
   class Marketplace extends Buildable {}
   class Palace extends Buildable {}
 
-  const setUp = async (priorities: [typeof Buildable, number][]) => {
+  const setUp = async (
+    priorities: [typeof Buildable, number][],
+    extraItems: [typeof Buildable, number][] = []
+  ) => {
     const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
       ruleRegistry = new RuleRegistry(),
       cityBuild = new CityBuild(
@@ -28,7 +31,13 @@ describe('autoBuild', (): void => {
         ruleRegistry
       );
 
-    availableBuildItemsRegistry.register(Granary, Library, Marketplace, Palace);
+    availableBuildItemsRegistry.register(
+      Granary,
+      Library,
+      Marketplace,
+      Palace,
+      ...extraItems.map(([Item]) => Item)
+    );
 
     ruleRegistry.register(
       new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
@@ -37,6 +46,7 @@ describe('autoBuild', (): void => {
         [Library, 60],
         [Marketplace, 60],
         [Palace, 100],
+        ...extraItems,
       ]),
       ...priorities.map(
         ([Item, score]) =>
@@ -83,6 +93,34 @@ describe('autoBuild', (): void => {
       Library,
       Marketplace,
     ]);
+  });
+
+  it('should break a name tie the same way whatever the locale', async (): Promise<void> => {
+    // Upper case sorts before lower case by code unit, but not in most locales.
+    class apiary extends Buildable {}
+    class Zoo extends Buildable {}
+
+    const { cityBuild, ruleRegistry } = await setUp(
+        [
+          [apiary, 1],
+          [Zoo, 1],
+        ],
+        [
+          [apiary, 60],
+          [Zoo, 60],
+        ]
+      ),
+      localeCompare = String.prototype.localeCompare;
+
+    String.prototype.localeCompare = (): number => {
+      throw new Error('localeCompare should not be used');
+    };
+
+    try {
+      expect(items(rankBuildItems(cityBuild, ruleRegistry))).eql([Zoo, apiary]);
+    } finally {
+      String.prototype.localeCompare = localeCompare;
+    }
   });
 
   it('should weigh each score and leave out what `include` excludes', async (): Promise<void> => {
