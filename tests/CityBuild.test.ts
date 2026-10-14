@@ -15,6 +15,7 @@ import BuildingComplete from '../Rules/BulidingComplete';
 import CityBuild from '../CityBuild';
 import Criterion from '@civ-clone/core-rule/Criterion';
 import Effect from '@civ-clone/core-rule/Effect';
+import Priority from '@civ-clone/core-rule/Priority';
 import RuleRegistry from '@civ-clone/core-rule/RuleRegistry';
 import { buildCost } from '../Rules/BuildCost';
 import { setUpCity } from '@civ-clone/civ1-city/tests/lib/setUpCity';
@@ -193,5 +194,166 @@ describe('CityBuild', (): void => {
     cityBuild.revalidate();
 
     expect(cityBuild.building()).null;
+  });
+
+  describe('rules that declare the items they are about', (): void => {
+    class Other extends Buildable {
+      public static build() {
+        return new Other();
+      }
+    }
+
+    class Family extends Buildable {}
+
+    class Member extends Family {
+      public static build() {
+        return new Member();
+      }
+    }
+
+    const criterion = (result: boolean) => (): IBuildCriterion =>
+      new Criterion(() => result);
+
+    it('should only check a rule against the items it declared, and those extending them', async (): Promise<void> => {
+      const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+        ruleRegistry = new RuleRegistry(),
+        city = await setUpCity(),
+        cityBuild = new CityBuild(
+          city,
+          availableBuildItemsRegistry,
+          ruleRegistry
+        ),
+        checked: [string, string][] = [],
+        record = (name: string) =>
+          new Criterion((cityChecked: any, Item: any): boolean => {
+            checked.push([name, Item.name]);
+
+            return true;
+          });
+
+      ruleRegistry.register(
+        new Build(Unit, record('unit'), new Effect(criterion(true))),
+        new Build(Family, record('family'), new Effect(criterion(true))),
+        new Build(record('everything'), new Effect(criterion(true)))
+      );
+      availableBuildItemsRegistry.register(Unit, Other, Member);
+
+      expect(cityBuild.available().map((item) => item.item())).members([
+        Unit,
+        Other,
+        Member,
+      ]);
+      expect(checked.sort()).eql(
+        [
+          ['everything', 'Member'],
+          ['everything', 'Other'],
+          ['everything', 'Unit'],
+          ['family', 'Member'],
+          ['unit', 'Unit'],
+        ].sort()
+      );
+    });
+
+    it('should give the same answer as checking every rule against every item', async (): Promise<void> => {
+      const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+        ruleRegistry = new RuleRegistry(),
+        city = await setUpCity(),
+        cityBuild = new CityBuild(
+          city,
+          availableBuildItemsRegistry,
+          ruleRegistry
+        ),
+        rules = [
+          new Build(
+            Unit,
+            new Criterion((c: any, Item: any) => Item === Unit),
+            new Effect(criterion(true))
+          ),
+          new Build(
+            Family,
+            new Criterion((c: any, Item: any) =>
+              Object.prototype.isPrototypeOf.call(Family, Item)
+            ),
+            new Effect(criterion(false))
+          ),
+          new Build(
+            Other,
+            new Criterion((c: any, Item: any) => Item === Other),
+            new Effect(criterion(true))
+          ),
+          new Build(new Effect(criterion(true))),
+        ];
+
+      ruleRegistry.register(...rules);
+      availableBuildItemsRegistry.register(Unit, Other, Member);
+
+      const everything = availableBuildItemsRegistry
+        .entries()
+        .filter((Item) =>
+          rules
+            .filter((rule) => rule.validate(city, Item))
+            .every((rule) => rule.process(city, Item).validate())
+        );
+
+      expect(everything).members([Unit, Other]);
+      expect(cityBuild.available().map((item) => item.item())).members(
+        everything
+      );
+    });
+
+    it('should check a rule that declares more than one item against each of them', async (): Promise<void> => {
+      const rule = new Build(Unit, Other, new Effect(criterion(true)));
+
+      expect(rule.mayApplyTo(Unit)).true;
+      expect(rule.mayApplyTo(Other)).true;
+      expect(rule.mayApplyTo(Member)).false;
+      expect(rule.items()).eql([Unit, Other]);
+      expect(new Build(new Effect(criterion(true))).items()).null;
+      expect(new Build(new Effect(criterion(true))).mayApplyTo(Member)).true;
+    });
+
+    it('should keep the rule id, priority and effect of a rule that declares items', async (): Promise<void> => {
+      const priority = new Priority(10),
+        rule = new Build(
+          'test:city/build/unit',
+          Unit,
+          priority,
+          new Effect(criterion(true))
+        );
+
+      expect(rule.id()).equal('test:city/build/unit');
+      expect(rule.priority()).equal(priority);
+      expect(rule.process(null as any, Unit).validate()).true;
+    });
+
+    it('should pick up a rule registered, and one disabled, after the first check', async (): Promise<void> => {
+      const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+        ruleRegistry = new RuleRegistry(),
+        cityBuild = new CityBuild(
+          await setUpCity(),
+          availableBuildItemsRegistry,
+          ruleRegistry
+        ),
+        allow = new Build(new Effect(criterion(true))),
+        deny = new Build(Unit, new Effect(criterion(false)));
+
+      availableBuildItemsRegistry.register(Unit, Other);
+      ruleRegistry.register(allow);
+
+      expect(cityBuild.available()).length(2);
+
+      ruleRegistry.register(deny);
+
+      expect(cityBuild.available().map((item) => item.item())).members([Other]);
+
+      deny.disable();
+      ruleRegistry.invalidateCache(deny);
+
+      expect(cityBuild.available()).length(2);
+
+      ruleRegistry.unregister(allow);
+
+      expect(cityBuild.available()).length(2);
+    });
   });
 });
