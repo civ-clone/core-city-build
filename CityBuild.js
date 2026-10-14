@@ -9,6 +9,7 @@ const BuildItem_1 = require("./BuildItem");
 const Yields_1 = require("./Yields");
 const BulidingCancelled_1 = require("./Rules/BulidingCancelled");
 const BulidingComplete_1 = require("./Rules/BulidingComplete");
+const buildRulesFor_1 = require("./lib/buildRulesFor");
 class CityBuild extends DataObject_1.DataObject {
     constructor(city, availableCityBuildItemsRegistry = AvailableCityBuildItemsRegistry_1.instance, ruleRegistry = RuleRegistry_1.instance) {
         super();
@@ -32,10 +33,12 @@ class CityBuild extends DataObject_1.DataObject {
     }
     available() {
         const buildRules = this._ruleRegistry.get(Build_1.default);
+        // Each item is only checked against the rules that could apply to it (`buildRulesFor`), not all ~100 of them.
+        //  Rules that declare no item are still checked against everything.
         // TODO: this still feels awkward... It's either this, or every rule has to be 'either it isn't this thing we're
         //  checking or it is and it meets the condition' or it's this. It'd be nice to be able to just filter the list in a
         //  more straightforward way...
-        return this._availableCityBuildItemsRegistry.filter((BuildItem) => buildRules
+        return this._availableCityBuildItemsRegistry.filter((BuildItem) => (0, buildRulesFor_1.buildRulesFor)(buildRules, BuildItem)
             .filter((rule) => rule.validate(this.city(), BuildItem))
             .every((rule) => rule.process(this.city(), BuildItem).validate())).map((available) => new BuildItem_1.default(available, this.city(), this._ruleRegistry));
     }

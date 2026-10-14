@@ -19,6 +19,7 @@ import BuildingComplete from './Rules/BulidingComplete';
 import City from '@civ-clone/core-city/City';
 import { IConstructor } from '@civ-clone/core-registry/Registry';
 import Yield from '@civ-clone/core-yield/Yield';
+import { buildRulesFor } from './lib/buildRulesFor';
 
 export interface ICityBuild extends IDataObject {
   add(production: Yield): void;
@@ -84,13 +85,15 @@ export class CityBuild extends DataObject implements ICityBuild {
   available(): BuildItem[] {
     const buildRules = this._ruleRegistry.get(Build);
 
+    // Each item is only checked against the rules that could apply to it (`buildRulesFor`), not all ~100 of them.
+    //  Rules that declare no item are still checked against everything.
     // TODO: this still feels awkward... It's either this, or every rule has to be 'either it isn't this thing we're
     //  checking or it is and it meets the condition' or it's this. It'd be nice to be able to just filter the list in a
     //  more straightforward way...
     return (
       this._availableCityBuildItemsRegistry.filter(
         (BuildItem: Buildable): boolean =>
-          buildRules
+          buildRulesFor(buildRules, BuildItem)
             .filter((rule: Build): boolean =>
               rule.validate(this.city(), BuildItem)
             )
