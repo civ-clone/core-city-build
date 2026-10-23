@@ -9,6 +9,11 @@ import { BuildProgress } from './Yields';
 import { IBuildable as Buildable } from './Buildable';
 import City from '@civ-clone/core-city/City';
 import Yield from '@civ-clone/core-yield/Yield';
+/** An item a city can't build, and the ids of the rules that refused it (`null` for a rule with no id). */
+export interface IUnavailableBuildItem {
+  item: Buildable;
+  refusedBy: (string | null)[];
+}
 export interface ICityBuild extends IDataObject {
   add(production: Yield): void;
   auto(): boolean;
@@ -22,6 +27,7 @@ export interface ICityBuild extends IDataObject {
   remaining(): number;
   revalidate(): void;
   setAuto(auto: boolean): void;
+  unavailable(): IUnavailableBuildItem[];
 }
 export declare class CityBuild extends DataObject implements ICityBuild {
   static readonly transient: string[];
@@ -40,6 +46,13 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   add(production: Yield): void;
   auto(): boolean;
   available(): BuildItem[];
+  /**
+   * Every item `available()` leaves out, with the ids of the rules that refused it, for saying why a city can't build
+   * something (civ-clone/web-renderer#37): a ruleset's requirement entries share their rules' ids, so an id names what
+   * is missing. It asks the same rules `available()` does; `available()` itself doesn't use it, as it can stop at the
+   * first refusal.
+   */
+  unavailable(): IUnavailableBuildItem[];
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
   check(): IDataObject | null;
