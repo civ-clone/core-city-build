@@ -21,6 +21,12 @@ import { IConstructor } from '@civ-clone/core-registry/Registry';
 import Yield from '@civ-clone/core-yield/Yield';
 import { buildRulesFor } from './lib/buildRulesFor';
 
+/** An item a city can't build, and the ids of the rules that refused it (`null` for a rule with no id). */
+export interface IUnavailableBuildItem {
+  item: Buildable;
+  refusedBy: (string | null)[];
+}
+
 export interface ICityBuild extends IDataObject {
   add(production: Yield): void;
   auto(): boolean;
@@ -34,6 +40,7 @@ export interface ICityBuild extends IDataObject {
   remaining(): number;
   revalidate(): void;
   setAuto(auto: boolean): void;
+  unavailable(): IUnavailableBuildItem[];
 }
 
 export class CityBuild extends DataObject implements ICityBuild {
@@ -104,6 +111,35 @@ export class CityBuild extends DataObject implements ICityBuild {
     ).map(
       (available) => new BuildItem(available, this.city(), this._ruleRegistry)
     );
+  }
+
+  /**
+   * Every item `available()` leaves out, with the ids of the rules that refused it, for saying why a city can't build
+   * something (civ-clone/web-renderer#37): a ruleset's requirement entries share their rules' ids, so an id names what
+   * is missing. It asks the same rules `available()` does; `available()` itself doesn't use it, as it can stop at the
+   * first refusal.
+   */
+  unavailable(): IUnavailableBuildItem[] {
+    const buildRules = this._ruleRegistry.get(Build);
+
+    return (this._availableCityBuildItemsRegistry.entries() as Buildable[])
+      .map(
+        (BuildItem: Buildable): IUnavailableBuildItem => ({
+          item: BuildItem,
+          refusedBy: buildRulesFor(buildRules, BuildItem)
+            .filter((rule: Build): boolean =>
+              rule.validate(this.city(), BuildItem)
+            )
+            .filter(
+              (rule: Build): boolean =>
+                !rule.process(this.city(), BuildItem).validate()
+            )
+            .map((rule: Build): string | null => rule.id()),
+        })
+      )
+      .filter(
+        ({ refusedBy }: IUnavailableBuildItem): boolean => refusedBy.length > 0
+      );
   }
 
   build(ItemToBuild: Buildable): void {

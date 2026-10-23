@@ -17,7 +17,7 @@ import Criterion from '@civ-clone/core-rule/Criterion';
 import Effect from '@civ-clone/core-rule/Effect';
 import Priority from '@civ-clone/core-rule/Priority';
 import RuleRegistry from '@civ-clone/core-rule/RuleRegistry';
-import { buildCost } from '../Rules/BuildCost';
+import { buildCost, buildCosts } from '../Rules/BuildCost';
 import { setUpCity } from '@civ-clone/civ1-city/tests/lib/setUpCity';
 import * as spies from 'chai-spies';
 
@@ -194,6 +194,42 @@ describe('CityBuild', (): void => {
     cityBuild.revalidate();
 
     expect(cityBuild.building()).null;
+  });
+
+  it('should list what it cannot build, and the ids of the rules that refused each', async (): Promise<void> => {
+    const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+      ruleRegistry = new RuleRegistry(),
+      cityBuild = new CityBuild(
+        await setUpCity(),
+        availableBuildItemsRegistry,
+        ruleRegistry
+      ),
+      refuse = () => new Criterion((): boolean => false);
+
+    ruleRegistry.register(
+      ...buildCosts([
+        [Warrior, 10],
+        [Spearman, 20],
+        [Horseman, 20],
+      ]),
+      new Build('test:needs-bronze', Spearman, new Effect(refuse)),
+      new Build('test:needs-horses', Horseman, new Effect(refuse)),
+      new Build(Horseman, new Effect(refuse)),
+      new Build(
+        'test:fine',
+        Horseman,
+        new Effect(() => new Criterion((): boolean => true))
+      )
+    );
+    availableBuildItemsRegistry.register(Warrior, Spearman, Horseman);
+
+    expect(
+      cityBuild.unavailable().map(({ item, refusedBy }) => [item, refusedBy])
+    ).eql([
+      [Spearman, ['test:needs-bronze']],
+      [Horseman, ['test:needs-horses', null]],
+    ]);
+    expect(cityBuild.available().map((item) => item.item())).eql([Warrior]);
   });
 
   describe('rules that declare the items they are about', (): void => {

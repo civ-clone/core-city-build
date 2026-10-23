@@ -42,6 +42,24 @@ class CityBuild extends DataObject_1.DataObject {
             .filter((rule) => rule.validate(this.city(), BuildItem))
             .every((rule) => rule.process(this.city(), BuildItem).validate())).map((available) => new BuildItem_1.default(available, this.city(), this._ruleRegistry));
     }
+    /**
+     * Every item `available()` leaves out, with the ids of the rules that refused it, for saying why a city can't build
+     * something (civ-clone/web-renderer#37): a ruleset's requirement entries share their rules' ids, so an id names what
+     * is missing. It asks the same rules `available()` does; `available()` itself doesn't use it, as it can stop at the
+     * first refusal.
+     */
+    unavailable() {
+        const buildRules = this._ruleRegistry.get(Build_1.default);
+        return this._availableCityBuildItemsRegistry.entries()
+            .map((BuildItem) => ({
+            item: BuildItem,
+            refusedBy: (0, buildRulesFor_1.buildRulesFor)(buildRules, BuildItem)
+                .filter((rule) => rule.validate(this.city(), BuildItem))
+                .filter((rule) => !rule.process(this.city(), BuildItem).validate())
+                .map((rule) => rule.id()),
+        }))
+            .filter(({ refusedBy }) => refusedBy.length > 0);
+    }
     build(ItemToBuild) {
         const buildItem = this.getAvailable(ItemToBuild);
         if (!buildItem) {
