@@ -50,7 +50,8 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    * Every item `available()` leaves out, with the ids of the rules that refused it, for saying why a city can't build
    * something (civ-clone/web-renderer#37): a ruleset's requirement entries share their rules' ids, so an id names what
    * is missing. It asks the same rules `available()` does; `available()` itself doesn't use it, as it can stop at the
-   * first refusal.
+   * first refusal. Unlike `available()`, it runs every applicable rule for an item, so a rule must not rely on an earlier
+   * one having refused first.
    */
   unavailable(): IUnavailableBuildItem[];
   build(ItemToBuild: Buildable): void;
