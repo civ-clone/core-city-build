@@ -33,6 +33,7 @@ export interface ICityBuild extends IDataObject {
   available(): BuildItem[];
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
+  cancel(): void;
   check(): void;
   cost(): BuildProgress;
   getAvailable(Item: Buildable): BuildItem;
@@ -162,6 +163,18 @@ export class CityBuild extends DataObject implements ICityBuild {
     return this._building;
   }
 
+  /** Stops building the current item, if any, and processes the `BuildingCancelled` rules. Progress is kept. */
+  cancel(): void {
+    if (this._building === null) {
+      return;
+    }
+
+    this._building = null;
+    this._cost.set(Infinity);
+
+    this._ruleRegistry.process(BuildingCancelled, this);
+  }
+
   check(): IDataObject | null {
     if (this._progress.value() >= this._cost.value() && this._building) {
       const built = this._building.item().build(this._city, this._ruleRegistry);
@@ -220,10 +233,7 @@ export class CityBuild extends DataObject implements ICityBuild {
 
   revalidate(): void {
     if (this._building && !this.getAvailable(this._building.item())) {
-      this._building = null;
-      this._cost.set(Infinity);
-
-      this._ruleRegistry.process(BuildingCancelled, this);
+      this.cancel();
     }
   }
 

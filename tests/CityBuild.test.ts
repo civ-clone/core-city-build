@@ -234,6 +234,38 @@ describe('CityBuild', (): void => {
     expect(cityBuild.progress().value()).equal(5);
   });
 
+  it('should stop building on `cancel()`, keeping the progress, and process the `BuildingCancelled` rules once', async (): Promise<void> => {
+    const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+      ruleRegistry = new RuleRegistry(),
+      cityBuild = new CityBuild(
+        await setUpCity(),
+        availableBuildItemsRegistry,
+        ruleRegistry
+      ),
+      effectSpy = spy();
+
+    ruleRegistry.register(
+      new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
+      ...buildCost(Unit, 10),
+      new BuildingCancelled(new Effect(effectSpy))
+    );
+
+    availableBuildItemsRegistry.register(Unit);
+
+    cityBuild.build(Unit);
+    cityBuild.add(new BuildProgress(5));
+    cityBuild.cancel();
+
+    expect(cityBuild.building()).null;
+    expect(cityBuild.cost().value()).equal(Infinity);
+    expect(cityBuild.progress().value()).equal(5);
+    expect(effectSpy).called.once;
+
+    cityBuild.cancel();
+
+    expect(effectSpy).called.once;
+  });
+
   it('should do nothing on `reprice()` when nothing is being built', async (): Promise<void> => {
     const cityBuild = new CityBuild(await setUpCity());
 

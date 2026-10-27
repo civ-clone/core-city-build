@@ -20,6 +20,7 @@ export interface ICityBuild extends IDataObject {
   available(): BuildItem[];
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
+  cancel(): void;
   check(): void;
   cost(): BuildProgress;
   getAvailable(Item: Buildable): BuildItem;
@@ -57,6 +58,8 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   unavailable(): IUnavailableBuildItem[];
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
+  /** Stops building the current item, if any, and processes the `BuildingCancelled` rules. Progress is kept. */
+  cancel(): void;
   check(): IDataObject | null;
   city(): City;
   cost(): BuildProgress;

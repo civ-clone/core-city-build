@@ -72,6 +72,15 @@ class CityBuild extends DataObject_1.DataObject {
     building() {
         return this._building;
     }
+    /** Stops building the current item, if any, and processes the `BuildingCancelled` rules. Progress is kept. */
+    cancel() {
+        if (this._building === null) {
+            return;
+        }
+        this._building = null;
+        this._cost.set(Infinity);
+        this._ruleRegistry.process(BulidingCancelled_1.default, this);
+    }
     check() {
         if (this._progress.value() >= this._cost.value() && this._building) {
             const built = this._building.item().build(this._city, this._ruleRegistry);
@@ -111,9 +120,7 @@ class CityBuild extends DataObject_1.DataObject {
     }
     revalidate() {
         if (this._building && !this.getAvailable(this._building.item())) {
-            this._building = null;
-            this._cost.set(Infinity);
-            this._ruleRegistry.process(BulidingCancelled_1.default, this);
+            this.cancel();
         }
     }
     setAuto(auto) {
