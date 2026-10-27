@@ -196,6 +196,53 @@ describe('CityBuild', (): void => {
     expect(cityBuild.building()).null;
   });
 
+  it('should price the item being built again on `reprice()`, keeping the item and the progress', async (): Promise<void> => {
+    const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+      ruleRegistry = new RuleRegistry(),
+      cityBuild = new CityBuild(
+        await setUpCity(),
+        availableBuildItemsRegistry,
+        ruleRegistry
+      );
+    let doubled = true;
+
+    ruleRegistry.register(
+      new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
+      ...buildCost(Unit, 10),
+      new BuildCostModifier(
+        new Criterion(() => doubled),
+        new Effect((buildItem, buildCity, cost: number): number => cost * 2)
+      )
+    );
+
+    availableBuildItemsRegistry.register(Unit);
+
+    cityBuild.build(Unit);
+    cityBuild.add(new BuildProgress(5));
+
+    expect(cityBuild.cost().value()).equal(20);
+
+    doubled = false;
+
+    expect(cityBuild.cost().value()).equal(20);
+
+    cityBuild.reprice();
+
+    expect(cityBuild.cost().value()).equal(10);
+    expect(cityBuild.building()!.cost().value()).equal(10);
+    expect(cityBuild.building()!.item()).equal(Unit);
+    expect(cityBuild.progress().value()).equal(5);
+  });
+
+  it('should do nothing on `reprice()` when nothing is being built', async (): Promise<void> => {
+    const cityBuild = new CityBuild(await setUpCity());
+
+    cityBuild.reprice();
+
+    expect(cityBuild.building()).null;
+    expect(cityBuild.cost().value()).equal(Infinity);
+  });
+
   it('should list what it cannot build, and the ids of the rules that refused each', async (): Promise<void> => {
     const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
       ruleRegistry = new RuleRegistry(),
