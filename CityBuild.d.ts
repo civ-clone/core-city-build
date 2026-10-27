@@ -25,6 +25,7 @@ export interface ICityBuild extends IDataObject {
   getAvailable(Item: Buildable): BuildItem;
   progress(): BuildProgress;
   remaining(): number;
+  reprice(): void;
   revalidate(): void;
   setAuto(auto: boolean): void;
   unavailable(): IUnavailableBuildItem[];
@@ -62,6 +63,11 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   getAvailable(Item: Buildable): BuildItem;
   progress(): BuildProgress;
   remaining(): number;
+  /**
+   * Prices what the city is building again, for the city as it is now. A `BuildCostModifier` may depend on who owns
+   *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500).
+   */
+  reprice(): void;
   revalidate(): void;
   setAuto(auto: boolean): void;
 }

@@ -98,6 +98,17 @@ class CityBuild extends DataObject_1.DataObject {
     remaining() {
         return this._cost.value() - this._progress.value();
     }
+    /**
+     * Prices what the city is building again, for the city as it is now. A `BuildCostModifier` may depend on who owns
+     *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500).
+     */
+    reprice() {
+        if (this._building === null) {
+            return;
+        }
+        this._building = new BuildItem_1.default(this._building.item(), this.city(), this._ruleRegistry);
+        this._cost.set(this._building.cost().value());
+    }
     revalidate() {
         if (this._building && !this.getAvailable(this._building.item())) {
             this._building = null;
