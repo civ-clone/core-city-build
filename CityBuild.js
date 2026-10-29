@@ -17,12 +17,13 @@ class CityBuild extends DataObject_1.DataObject {
         //  ruleset's `BuildingComplete` and `BuildingCancelled` rules do, with `lib/autoBuild`.
         this._auto = false;
         this._building = null;
+        this._cleared = null;
         this._cost = new Yields_1.BuildProgress(Infinity);
         this._progress = new Yields_1.BuildProgress();
         this._availableCityBuildItemsRegistry = availableCityBuildItemsRegistry;
         this._city = city;
         this._ruleRegistry = ruleRegistry;
-        this.addKey('auto', 'available', 'building', 'city', 'cost', 'progress', 'remaining');
+        this.addKey('auto', 'available', 'building', 'city', 'cleared', 'cost', 'progress', 'remaining');
     }
     add(production) {
         this._progress.add(production);
@@ -67,16 +68,24 @@ class CityBuild extends DataObject_1.DataObject {
             throw new TypeError(`Cannot build ${ItemToBuild.name}, it's not available.`);
         }
         this._building = buildItem;
+        this._cleared = null;
         this._cost.set(this._building.cost().value());
     }
     building() {
         return this._building;
     }
-    /** Stops building the current item, if any, and processes the `BuildingCancelled` rules. Progress is kept. */
-    cancel() {
+    /**
+     * Stops building the current item, if any, and processes the `BuildingCancelled` rules. Progress is kept. `reason` is
+     *  what `cleared()` gives, set before the rules run, so a rule that chooses another build clears it again.
+     */
+    cancel(reason = 'cancelled') {
         if (this._building === null) {
             return;
         }
+        this._cleared = {
+            reason,
+            item: this._building.item(),
+        };
         this._building = null;
         this._cost.set(Infinity);
         this._ruleRegistry.process(BulidingCancelled_1.default, this);
@@ -85,6 +94,10 @@ class CityBuild extends DataObject_1.DataObject {
         if (this._progress.value() >= this._cost.value() && this._building) {
             const built = this._building.item().build(this._city, this._ruleRegistry);
             this._progress.set(0);
+            this._cleared = {
+                reason: 'completed',
+                item: this._building.item(),
+            };
             this._building = null;
             this._cost.set(Infinity);
             this._ruleRegistry.process(BulidingComplete_1.default, this, built);
@@ -94,6 +107,15 @@ class CityBuild extends DataObject_1.DataObject {
     }
     city() {
         return this._city;
+    }
+    /** Why the city is building nothing, or `null` while it builds something, or when that isn't known (an older save). */
+    cleared() {
+        var _a;
+        if (this._building !== null) {
+            return null;
+        }
+        // A build restored from a save made before this existed has no `_cleared` at all.
+        return (_a = this._cleared) !== null && _a !== void 0 ? _a : null;
     }
     cost() {
         return this._cost;
@@ -120,11 +142,18 @@ class CityBuild extends DataObject_1.DataObject {
     }
     revalidate() {
         if (this._building && !this.getAvailable(this._building.item())) {
-            this.cancel();
+            this.cancel('unavailable');
         }
     }
     setAuto(auto) {
         this._auto = auto;
+    }
+    /** Records why the city is building nothing, for a reason the build itself doesn't know, such as a new city. */
+    setCleared(reason, item = null) {
+        this._cleared = {
+            reason,
+            item,
+        };
     }
 }
 exports.CityBuild = CityBuild;
