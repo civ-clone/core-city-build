@@ -12,7 +12,8 @@ export interface IBuildPreferences {
 }
 
 export class BuildPreferencesRegistry {
-  #preferences: Map<Player, IBuildPreferences> = new Map();
+  // Weak, so a finished game's players aren't kept for the next.
+  #preferences: WeakMap<Player, IBuildPreferences> = new WeakMap();
 
   get(player: Player): IBuildPreferences {
     return {

@@ -9,7 +9,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.instance = exports.BuildPreferencesRegistry = void 0;
 class BuildPreferencesRegistry {
     constructor() {
-        _BuildPreferencesRegistry_preferences.set(this, new Map());
+        // Weak, so a finished game's players aren't kept for the next.
+        _BuildPreferencesRegistry_preferences.set(this, new WeakMap());
     }
     get(player) {
         return {
