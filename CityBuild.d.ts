@@ -14,14 +14,31 @@ export interface IUnavailableBuildItem {
   item: Buildable;
   refusedBy: (string | null)[];
 }
+/**
+ * Why a city is building nothing (civ-clone/web-renderer#716): it finished `item` (`completed`), stopped building it
+ *  (`cancelled`), or could no longer build it (`unavailable`); or the city is new (`created`) or has changed hands
+ *  (`captured`). A ruleset may give its own reasons.
+ */
+export type CityBuildClearedReason =
+  | 'cancelled'
+  | 'captured'
+  | 'completed'
+  | 'created'
+  | 'unavailable'
+  | string;
+export interface ICityBuildCleared {
+  reason: CityBuildClearedReason;
+  item: Buildable | null;
+}
 export interface ICityBuild extends IDataObject {
   add(production: Yield): void;
   auto(): boolean;
   available(): BuildItem[];
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
-  cancel(): void;
+  cancel(reason?: CityBuildClearedReason): void;
   check(): void;
+  cleared(): ICityBuildCleared | null;
   cost(): BuildProgress;
   getAvailable(Item: Buildable): BuildItem;
   progress(): BuildProgress;
@@ -29,6 +46,7 @@ export interface ICityBuild extends IDataObject {
   reprice(): void;
   revalidate(): void;
   setAuto(auto: boolean): void;
+  setCleared(reason: CityBuildClearedReason, item?: Buildable | null): void;
   unavailable(): IUnavailableBuildItem[];
 }
 export declare class CityBuild extends DataObject implements ICityBuild {
@@ -37,6 +55,7 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   private _availableCityBuildItemsRegistry;
   private _building;
   private _city;
+  private _cleared;
   private _cost;
   private _progress;
   private _ruleRegistry;
@@ -58,10 +77,15 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   unavailable(): IUnavailableBuildItem[];
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
-  /** Stops building the current item, if any, and processes the `BuildingCancelled` rules. Progress is kept. */
-  cancel(): void;
+  /**
+   * Stops building the current item, if any, and processes the `BuildingCancelled` rules. Progress is kept. `reason` is
+   *  what `cleared()` gives, set before the rules run, so a rule that chooses another build clears it again.
+   */
+  cancel(reason?: CityBuildClearedReason): void;
   check(): IDataObject | null;
   city(): City;
+  /** Why the city is building nothing, or `null` while it builds something, or when that isn't known (an older save). */
+  cleared(): ICityBuildCleared | null;
   cost(): BuildProgress;
   getAvailable(Item: Buildable): BuildItem;
   progress(): BuildProgress;
@@ -73,5 +97,7 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   reprice(): void;
   revalidate(): void;
   setAuto(auto: boolean): void;
+  /** Records why the city is building nothing, for a reason the build itself doesn't know, such as a new city. */
+  setCleared(reason: CityBuildClearedReason, item?: Buildable | null): void;
 }
 export default CityBuild;

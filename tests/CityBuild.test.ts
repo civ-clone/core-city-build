@@ -266,6 +266,124 @@ describe('CityBuild', (): void => {
     expect(effectSpy).called.once;
   });
 
+  describe('why it is building nothing (civ-clone/web-renderer#716)', (): void => {
+    const setUp = async () => {
+      const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+        ruleRegistry = new RuleRegistry(),
+        cityBuild = new CityBuild(
+          await setUpCity(),
+          availableBuildItemsRegistry,
+          ruleRegistry
+        );
+
+      ruleRegistry.register(
+        new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
+        ...buildCost(Unit, 10)
+      );
+
+      availableBuildItemsRegistry.register(Unit);
+
+      return { availableBuildItemsRegistry, cityBuild, ruleRegistry };
+    };
+
+    it('should know of no reason to begin with', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      expect(cityBuild.cleared()).null;
+    });
+
+    it('should give the item it completed', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      cityBuild.build(Unit);
+      cityBuild.add(new BuildProgress(10));
+      cityBuild.check();
+
+      expect(cityBuild.cleared()).eql({ reason: 'completed', item: Unit });
+    });
+
+    it('should give the item cancelled, with the reason given', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      cityBuild.build(Unit);
+      cityBuild.cancel();
+
+      expect(cityBuild.cleared()).eql({ reason: 'cancelled', item: Unit });
+
+      cityBuild.build(Unit);
+      cityBuild.cancel('captured');
+
+      expect(cityBuild.cleared()).eql({ reason: 'captured', item: Unit });
+    });
+
+    it('should give the item it can no longer build, on `revalidate()`', async (): Promise<void> => {
+      const { availableBuildItemsRegistry, cityBuild } = await setUp();
+
+      cityBuild.build(Unit);
+      availableBuildItemsRegistry.unregister(Unit);
+      cityBuild.revalidate();
+
+      expect(cityBuild.cleared()).eql({ reason: 'unavailable', item: Unit });
+    });
+
+    it('should forget the reason when something is chosen', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      cityBuild.setCleared('created');
+
+      expect(cityBuild.cleared()).eql({ reason: 'created', item: null });
+
+      cityBuild.build(Unit);
+
+      expect(cityBuild.cleared()).null;
+
+      cityBuild.cancel();
+      cityBuild.build(Unit);
+
+      expect(cityBuild.cleared()).null;
+    });
+
+    it('should give none while it is building something', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      cityBuild.build(Unit);
+      cityBuild.setCleared('captured');
+
+      expect(cityBuild.cleared()).null;
+    });
+
+    it('should forget it when a `BuildingComplete` rule chooses the next build', async (): Promise<void> => {
+      const { cityBuild, ruleRegistry } = await setUp();
+
+      ruleRegistry.register(
+        new BuildingComplete(
+          new Effect((completed: CityBuild): void => completed.build(Unit))
+        )
+      );
+
+      cityBuild.build(Unit);
+      cityBuild.add(new BuildProgress(10));
+      cityBuild.check();
+
+      expect(cityBuild.building()!.item()).equal(Unit);
+      expect(cityBuild.cleared()).null;
+    });
+
+    it('should give none for a build restored from a save made before it existed', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      delete (cityBuild as unknown as { _cleared?: unknown })._cleared;
+
+      expect(cityBuild.cleared()).null;
+    });
+
+    it('should be sent with the build', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      expect(cityBuild.keys()).include('cleared');
+    });
+  });
+
   it('should do nothing on `reprice()` when nothing is being built', async (): Promise<void> => {
     const cityBuild = new CityBuild(await setUpCity());
 
