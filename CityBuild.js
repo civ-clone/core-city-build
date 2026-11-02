@@ -10,6 +10,20 @@ const Yields_1 = require("./Yields");
 const BulidingCancelled_1 = require("./Rules/BulidingCancelled");
 const BulidingComplete_1 = require("./Rules/BulidingComplete");
 const buildRulesFor_1 = require("./lib/buildRulesFor");
+// What a build sends a client: a constructor adds them, and `onHydrated` adds any a save from before one was added
+//  doesn't have.
+const cityBuildKeys = [
+    'auto',
+    'available',
+    'building',
+    'city',
+    'cleared',
+    'cost',
+    'progress',
+    'queue',
+    'queueDropped',
+    'remaining',
+];
 class CityBuild extends DataObject_1.DataObject {
     constructor(city, availableCityBuildItemsRegistry = AvailableCityBuildItemsRegistry_1.instance, ruleRegistry = RuleRegistry_1.instance) {
         super();
@@ -27,7 +41,7 @@ class CityBuild extends DataObject_1.DataObject {
         this._availableCityBuildItemsRegistry = availableCityBuildItemsRegistry;
         this._city = city;
         this._ruleRegistry = ruleRegistry;
-        this.addKey('auto', 'available', 'building', 'city', 'cleared', 'cost', 'progress', 'queue', 'queueDropped', 'remaining');
+        this.addKey(...cityBuildKeys);
     }
     add(production) {
         this._progress.add(production);
@@ -149,6 +163,14 @@ class CityBuild extends DataObject_1.DataObject {
         const queued = [...this.queued()];
         queued.splice(Math.max(0, Math.min(at, queued.length)), 0, Item);
         this._queue = queued;
+    }
+    /**
+     * A build loaded from a save has the keys it had when it was saved: one made before the queue existed would never
+     *  send it (civ-clone/web-renderer#774). Adds those it's missing.
+     */
+    onHydrated() {
+        const keys = this.keys();
+        this.addKey(...cityBuildKeys.filter((key) => !keys.includes(key)));
     }
     getAvailable(Item) {
         return this.available().filter((available) => available.item() === Item)[0];

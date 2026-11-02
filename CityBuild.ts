@@ -72,6 +72,21 @@ export interface ICityBuild extends IDataObject {
   unavailable(): IUnavailableBuildItem[];
 }
 
+// What a build sends a client: a constructor adds them, and `onHydrated` adds any a save from before one was added
+//  doesn't have.
+const cityBuildKeys: (keyof CityBuild)[] = [
+  'auto',
+  'available',
+  'building',
+  'city',
+  'cleared',
+  'cost',
+  'progress',
+  'queue',
+  'queueDropped',
+  'remaining',
+];
+
 export class CityBuild extends DataObject implements ICityBuild {
   static readonly transient = [
     '_availableCityBuildItemsRegistry',
@@ -103,18 +118,7 @@ export class CityBuild extends DataObject implements ICityBuild {
     this._city = city;
     this._ruleRegistry = ruleRegistry;
 
-    this.addKey(
-      'auto',
-      'available',
-      'building',
-      'city',
-      'cleared',
-      'cost',
-      'progress',
-      'queue',
-      'queueDropped',
-      'remaining'
-    );
+    this.addKey(...cityBuildKeys);
   }
 
   add(production: Yield): void {
@@ -290,6 +294,16 @@ export class CityBuild extends DataObject implements ICityBuild {
     queued.splice(Math.max(0, Math.min(at, queued.length)), 0, Item);
 
     this._queue = queued;
+  }
+
+  /**
+   * A build loaded from a save has the keys it had when it was saved: one made before the queue existed would never
+   *  send it (civ-clone/web-renderer#774). Adds those it's missing.
+   */
+  onHydrated(): void {
+    const keys = this.keys();
+
+    this.addKey(...cityBuildKeys.filter((key) => !keys.includes(key)));
   }
 
   getAvailable(Item: Buildable): BuildItem {

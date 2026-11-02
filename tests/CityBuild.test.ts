@@ -423,6 +423,20 @@ describe('CityBuild', (): void => {
       cityBuild.check();
     };
 
+    it('should be sent by a build loaded from a save made before it existed', async (): Promise<void> => {
+      const { cityBuild } = await setUp(),
+        loaded = Object.assign(Object.create(CityBuild.prototype), cityBuild, {
+          _keys: cityBuild
+            .keys()
+            .filter((key) => key !== 'queue' && key !== 'queueDropped'),
+        }) as CityBuild;
+
+      loaded.onHydrated();
+
+      expect(loaded.keys()).include.members(['queue', 'queueDropped']);
+      expect(loaded.keys().filter((key) => key === 'building').length).equal(1);
+    });
+
     it('should be empty to begin with, and for a build saved before it existed', async (): Promise<void> => {
       const { cityBuild } = await setUp();
 

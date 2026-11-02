@@ -105,6 +105,11 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    *  can't by the time it's reached is dropped then (`queueDropped`).
    */
   enqueue(Item: Buildable, at?: number): void;
+  /**
+   * A build loaded from a save has the keys it had when it was saved: one made before the queue existed would never
+   *  send it (civ-clone/web-renderer#774). Adds those it's missing.
+   */
+  onHydrated(): void;
   getAvailable(Item: Buildable): BuildItem;
   progress(): BuildProgress;
   /** The queued items, priced for the city as it is now, for a client to show their cost and turns. */
