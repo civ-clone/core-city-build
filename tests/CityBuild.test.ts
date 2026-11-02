@@ -546,8 +546,18 @@ describe('CityBuild', (): void => {
       expect(cityBuild.queued()).eql([]);
     });
 
-    it('should go on to the next item when the current one can no longer be built', async (): Promise<void> => {
-      const { availableBuildItemsRegistry, cityBuild } = await setUp();
+    it('should leave the city to its player when the current item can no longer be built, keeping the queue', async (): Promise<void> => {
+      const { availableBuildItemsRegistry, cityBuild, ruleRegistry } =
+          await setUp(),
+        seen: (Buildable | null)[] = [];
+
+      ruleRegistry.register(
+        new BuildingCancelled(
+          new Effect((cancelled: CityBuild): void => {
+            seen.push(cancelled.building()?.item() ?? null);
+          })
+        )
+      );
 
       cityBuild.build(Unit);
       cityBuild.enqueue(Second);
@@ -556,8 +566,10 @@ describe('CityBuild', (): void => {
 
       cityBuild.revalidate();
 
-      expect(cityBuild.building()!.item()).equal(Second);
-      expect(cityBuild.queued()).eql([]);
+      expect(cityBuild.building()).null;
+      expect(cityBuild.cleared()).eql({ reason: 'unavailable', item: Unit });
+      expect(cityBuild.queued()).eql([Second]);
+      expect(seen).eql([null]);
     });
 
     it('should keep the queue when the player stops building, and drop it when the city changes hands', async (): Promise<void> => {
@@ -579,6 +591,24 @@ describe('CityBuild', (): void => {
       cityBuild.setCleared('captured');
 
       expect(cityBuild.queued()).eql([]);
+    });
+
+    it('should forget what it dropped when the city changes hands', async (): Promise<void> => {
+      const { availableBuildItemsRegistry, cityBuild } = await setUp();
+
+      cityBuild.build(Unit);
+      cityBuild.enqueue(Second);
+      cityBuild.enqueue(Third);
+
+      availableBuildItemsRegistry.unregister(Second);
+
+      complete(cityBuild);
+
+      expect(cityBuild.queueDropped()).eql([Second]);
+
+      cityBuild.cancel('captured');
+
+      expect(cityBuild.queueDropped()).eql([]);
     });
   });
 

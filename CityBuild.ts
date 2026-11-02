@@ -422,18 +422,13 @@ export class CityBuild extends DataObject implements ICityBuild {
 
   /**
    * What the queue does when the build is cleared for `reason`: a city that has changed hands drops its previous
-   *  owner's queue; one that can no longer build its item goes on to the next. A player stopping the build keeps it.
+   *  owner's queue. Otherwise it's kept: a city that can no longer build its item (a rival finished the Wonder) is left
+   *  for its player to choose, and told why, as without a queue, and the queue goes on after whatever they choose.
    */
   protected queueAfterClearing(reason: CityBuildClearedReason): void {
     if (reason === 'captured') {
       this.clearQueue();
       this._queueDropped = [];
-
-      return;
-    }
-
-    if (reason === 'unavailable') {
-      this.advanceQueue();
     }
   }
 }
