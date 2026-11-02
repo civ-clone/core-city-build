@@ -38,6 +38,7 @@ export interface ICityBuild extends IDataObject {
   building(): BuildItem | null;
   cancel(reason?: CityBuildClearedReason): void;
   check(): void;
+  choose(ItemToBuild: Buildable): void;
   cleared(): ICityBuildCleared | null;
   clearQueue(): void;
   cost(): BuildProgress;
@@ -84,6 +85,11 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    * one having refused first.
    */
   unavailable(): IUnavailableBuildItem[];
+  /**
+   * Starts building `ItemToBuild`. Chosen by the player while it's first in the queue, it's that queued item: it leaves
+   *  the queue rather than being built twice.
+   */
+  choose(ItemToBuild: Buildable): void;
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
   /**
@@ -138,7 +144,8 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   /**
    * What the queue does when the build is cleared for `reason`: a city that has changed hands drops its previous
    *  owner's queue. Otherwise it's kept: a city that can no longer build its item (a rival finished the Wonder) is left
-   *  for its player to choose, and told why, as without a queue, and the queue goes on after whatever they choose.
+   *  for its player to choose, and told why, as without a queue, and the queue goes on after whatever they choose. A
+   *  city on Auto isn't asked, so it goes on to its queue, before Auto chooses for it.
    */
   protected queueAfterClearing(reason: CityBuildClearedReason): void;
 }

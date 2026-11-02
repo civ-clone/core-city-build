@@ -593,6 +593,51 @@ describe('CityBuild', (): void => {
       expect(cityBuild.queued()).eql([]);
     });
 
+    it('should go on to its queue on Auto when the current item can no longer be built, before the rules', async (): Promise<void> => {
+      const { availableBuildItemsRegistry, cityBuild, ruleRegistry } =
+          await setUp(),
+        seen: (Buildable | null)[] = [];
+
+      ruleRegistry.register(
+        new BuildingCancelled(
+          new Effect((cancelled: CityBuild): void => {
+            seen.push(cancelled.building()?.item() ?? null);
+          })
+        )
+      );
+
+      cityBuild.setAuto(true);
+      cityBuild.build(Unit);
+      cityBuild.enqueue(Second);
+
+      availableBuildItemsRegistry.unregister(Unit);
+
+      cityBuild.revalidate();
+
+      expect(cityBuild.building()!.item()).equal(Second);
+      expect(cityBuild.queued()).eql([]);
+      expect(seen).eql([Second]);
+    });
+
+    it('should start the first queued item when the player chooses it, not build it twice', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      cityBuild.build(Unit);
+      cityBuild.enqueue(Second);
+      cityBuild.enqueue(Second);
+      cityBuild.enqueue(Third);
+      cityBuild.cancel();
+
+      cityBuild.choose(Second);
+
+      expect(cityBuild.building()!.item()).equal(Second);
+      expect(cityBuild.queued()).eql([Second, Third]);
+
+      cityBuild.choose(Third);
+
+      expect(cityBuild.queued()).eql([Second, Third]);
+    });
+
     it('should forget what it dropped when the city changes hands', async (): Promise<void> => {
       const { availableBuildItemsRegistry, cityBuild } = await setUp();
 

@@ -80,6 +80,16 @@ class CityBuild extends DataObject_1.DataObject {
         }))
             .filter(({ refusedBy }) => refusedBy.length > 0);
     }
+    /**
+     * Starts building `ItemToBuild`. Chosen by the player while it's first in the queue, it's that queued item: it leaves
+     *  the queue rather than being built twice.
+     */
+    choose(ItemToBuild) {
+        this.build(ItemToBuild);
+        if (this.queued()[0] === ItemToBuild) {
+            this.dequeue(0);
+        }
+    }
     build(ItemToBuild) {
         const buildItem = this.getAvailable(ItemToBuild);
         if (!buildItem) {
@@ -253,12 +263,17 @@ class CityBuild extends DataObject_1.DataObject {
     /**
      * What the queue does when the build is cleared for `reason`: a city that has changed hands drops its previous
      *  owner's queue. Otherwise it's kept: a city that can no longer build its item (a rival finished the Wonder) is left
-     *  for its player to choose, and told why, as without a queue, and the queue goes on after whatever they choose.
+     *  for its player to choose, and told why, as without a queue, and the queue goes on after whatever they choose. A
+     *  city on Auto isn't asked, so it goes on to its queue, before Auto chooses for it.
      */
     queueAfterClearing(reason) {
         if (reason === 'captured') {
             this.clearQueue();
             this._queueDropped = [];
+            return;
+        }
+        if (reason === 'unavailable' && this.auto()) {
+            this.advanceQueue();
         }
     }
 }
