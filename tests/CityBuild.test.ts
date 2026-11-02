@@ -384,6 +384,190 @@ describe('CityBuild', (): void => {
     });
   });
 
+  describe('the queue (civ-clone/web-renderer#774)', (): void => {
+    class Second extends Buildable {
+      public static build() {
+        return new Second();
+      }
+    }
+
+    class Third extends Buildable {
+      public static build() {
+        return new Third();
+      }
+    }
+
+    const setUp = async () => {
+      const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+        ruleRegistry = new RuleRegistry(),
+        cityBuild = new CityBuild(
+          await setUpCity(),
+          availableBuildItemsRegistry,
+          ruleRegistry
+        );
+
+      ruleRegistry.register(
+        new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
+        ...buildCost(Unit, 10),
+        ...buildCost(Second, 20),
+        ...buildCost(Third, 30)
+      );
+
+      availableBuildItemsRegistry.register(Unit, Second, Third);
+
+      return { availableBuildItemsRegistry, cityBuild, ruleRegistry };
+    };
+
+    const complete = (cityBuild: CityBuild): void => {
+      cityBuild.add(new BuildProgress(cityBuild.remaining()));
+      cityBuild.check();
+    };
+
+    it('should be empty to begin with, and for a build saved before it existed', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      expect(cityBuild.queued()).eql([]);
+      expect(cityBuild.queueDropped()).eql([]);
+
+      delete (cityBuild as unknown as { _queue?: unknown })._queue;
+      delete (cityBuild as unknown as { _queueDropped?: unknown })
+        ._queueDropped;
+
+      expect(cityBuild.queued()).eql([]);
+      expect(cityBuild.queueDropped()).eql([]);
+    });
+
+    it('should add at the end or at a position, remove, move and clear', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      cityBuild.enqueue(Second);
+      cityBuild.enqueue(Third);
+      cityBuild.enqueue(Unit, 0);
+
+      expect(cityBuild.queued()).eql([Unit, Second, Third]);
+
+      cityBuild.requeue(0, 2);
+
+      expect(cityBuild.queued()).eql([Second, Third, Unit]);
+
+      cityBuild.requeue(2, 0);
+      cityBuild.requeue(5, 0);
+
+      expect(cityBuild.queued()).eql([Unit, Second, Third]);
+
+      cityBuild.dequeue(1);
+
+      expect(cityBuild.queued()).eql([Unit, Third]);
+
+      cityBuild.clearQueue();
+
+      expect(cityBuild.queued()).eql([]);
+    });
+
+    it("should refuse to queue what the city can't build", async (): Promise<void> => {
+      const { availableBuildItemsRegistry, cityBuild } = await setUp();
+
+      availableBuildItemsRegistry.unregister(Third);
+
+      expect(() => cityBuild.enqueue(Third)).throw(TypeError);
+    });
+
+    it('should give each queued item priced for the city, and be sent with the build', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      cityBuild.enqueue(Second);
+
+      expect(
+        cityBuild
+          .queue()
+          .map((buildItem) => [buildItem.item(), buildItem.cost().value()])
+      ).eql([[Second, 20]]);
+      expect(cityBuild.keys()).include.members(['queue', 'queueDropped']);
+    });
+
+    it('should start the next item when one is complete, before the `BuildingComplete` rules', async (): Promise<void> => {
+      const { cityBuild, ruleRegistry } = await setUp(),
+        seen: (Buildable | null)[] = [];
+
+      ruleRegistry.register(
+        new BuildingComplete(
+          new Effect((completed: CityBuild): void => {
+            seen.push(completed.building()?.item() ?? null);
+          })
+        )
+      );
+
+      cityBuild.build(Unit);
+      cityBuild.enqueue(Second);
+      cityBuild.enqueue(Third);
+
+      complete(cityBuild);
+
+      expect(cityBuild.building()!.item()).equal(Second);
+      expect(cityBuild.cost().value()).equal(20);
+      expect(cityBuild.queued()).eql([Third]);
+      expect(seen).eql([Second]);
+
+      complete(cityBuild);
+      complete(cityBuild);
+
+      expect(cityBuild.building()).null;
+      expect(cityBuild.cleared()!.item).equal(Third);
+      expect(seen).eql([Second, Third, null]);
+    });
+
+    it('should drop what it can no longer build, and say so', async (): Promise<void> => {
+      const { availableBuildItemsRegistry, cityBuild } = await setUp();
+
+      cityBuild.build(Unit);
+      cityBuild.enqueue(Second);
+      cityBuild.enqueue(Third);
+
+      availableBuildItemsRegistry.unregister(Second);
+
+      complete(cityBuild);
+
+      expect(cityBuild.building()!.item()).equal(Third);
+      expect(cityBuild.queueDropped()).eql([Second]);
+      expect(cityBuild.queued()).eql([]);
+    });
+
+    it('should go on to the next item when the current one can no longer be built', async (): Promise<void> => {
+      const { availableBuildItemsRegistry, cityBuild } = await setUp();
+
+      cityBuild.build(Unit);
+      cityBuild.enqueue(Second);
+
+      availableBuildItemsRegistry.unregister(Unit);
+
+      cityBuild.revalidate();
+
+      expect(cityBuild.building()!.item()).equal(Second);
+      expect(cityBuild.queued()).eql([]);
+    });
+
+    it('should keep the queue when the player stops building, and drop it when the city changes hands', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      cityBuild.build(Unit);
+      cityBuild.enqueue(Second);
+      cityBuild.cancel();
+
+      expect(cityBuild.building()).null;
+      expect(cityBuild.queued()).eql([Second]);
+
+      cityBuild.build(Unit);
+      cityBuild.cancel('captured');
+
+      expect(cityBuild.queued()).eql([]);
+
+      cityBuild.enqueue(Second);
+      cityBuild.setCleared('captured');
+
+      expect(cityBuild.queued()).eql([]);
+    });
+  });
+
   it('should do nothing on `reprice()` when nothing is being built', async (): Promise<void> => {
     const cityBuild = new CityBuild(await setUpCity());
 
