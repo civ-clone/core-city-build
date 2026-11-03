@@ -104,7 +104,7 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   /** Empties the queue. */
   clearQueue(): void;
   cost(): BuildProgress;
-  /** Removes the queued item at `index`. */
+  /** Removes the queued item at `index`. A negative one is the first; one past the end does nothing. */
   dequeue(index: number): void;
   /**
    * Lines `Item` up to build after the current item: at the end, or at `at`. Only what the city can build now; one it
@@ -130,7 +130,7 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500).
    */
   reprice(): void;
-  /** Moves the queued item at `from` to `to`. */
+  /** Moves the queued item at `from` to `to`, both clamped to the queue. A `from` past the end does nothing. */
   requeue(from: number, to: number): void;
   revalidate(): void;
   setAuto(auto: boolean): void;

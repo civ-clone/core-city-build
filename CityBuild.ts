@@ -284,11 +284,11 @@ export class CityBuild extends DataObject implements ICityBuild {
     return this._cost;
   }
 
-  /** Removes the queued item at `index`. */
+  /** Removes the queued item at `index`. A negative one is the first; one past the end does nothing. */
   dequeue(index: number): void {
     const queued = [...this.queued()];
 
-    queued.splice(index, 1);
+    queued.splice(Math.max(0, index), 1);
 
     this._queue = queued;
   }
@@ -370,10 +370,10 @@ export class CityBuild extends DataObject implements ICityBuild {
     this._cost.set(this._building.cost().value());
   }
 
-  /** Moves the queued item at `from` to `to`. */
+  /** Moves the queued item at `from` to `to`, both clamped to the queue. A `from` past the end does nothing. */
   requeue(from: number, to: number): void {
     const queued = [...this.queued()],
-      [moved] = queued.splice(from, 1);
+      [moved] = queued.splice(Math.max(0, from), 1);
 
     if (moved === undefined) {
       return;

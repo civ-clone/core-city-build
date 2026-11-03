@@ -466,10 +466,16 @@ describe('CityBuild', (): void => {
 
       cityBuild.requeue(2, 0);
       cityBuild.requeue(5, 0);
+      cityBuild.requeue(-1, 0);
 
       expect(cityBuild.queued()).eql([Unit, Second, Third]);
 
-      cityBuild.dequeue(1);
+      cityBuild.requeue(-1, 1);
+
+      expect(cityBuild.queued()).eql([Second, Unit, Third]);
+
+      cityBuild.dequeue(5);
+      cityBuild.dequeue(-1);
 
       expect(cityBuild.queued()).eql([Unit, Third]);
 
