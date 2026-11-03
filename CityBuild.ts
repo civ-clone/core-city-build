@@ -53,17 +53,40 @@ export interface ICityBuild extends IDataObject {
   building(): BuildItem | null;
   cancel(reason?: CityBuildClearedReason): void;
   check(): void;
+  choose(ItemToBuild: Buildable): void;
   cleared(): ICityBuildCleared | null;
+  clearQueue(): void;
   cost(): BuildProgress;
+  dequeue(index: number): void;
+  enqueue(Item: Buildable, at?: number): void;
   getAvailable(Item: Buildable): BuildItem;
   progress(): BuildProgress;
+  queue(): BuildItem[];
+  queued(): Buildable[];
+  queueDropped(): Buildable[];
   remaining(): number;
   reprice(): void;
+  requeue(from: number, to: number): void;
   revalidate(): void;
   setAuto(auto: boolean): void;
   setCleared(reason: CityBuildClearedReason, item?: Buildable | null): void;
   unavailable(): IUnavailableBuildItem[];
 }
+
+// What a build sends a client: a constructor adds them, and `onHydrated` adds any a save from before one was added
+//  doesn't have.
+const cityBuildKeys: (keyof CityBuild)[] = [
+  'auto',
+  'available',
+  'building',
+  'city',
+  'cleared',
+  'cost',
+  'progress',
+  'queue',
+  'queueDropped',
+  'remaining',
+];
 
 export class CityBuild extends DataObject implements ICityBuild {
   static readonly transient = [
@@ -79,6 +102,10 @@ export class CityBuild extends DataObject implements ICityBuild {
   private _cleared: ICityBuildCleared | null = null;
   private _cost: BuildProgress = new BuildProgress(Infinity);
   private _progress: BuildProgress = new BuildProgress();
+  // What the city builds after the current item, in order (civ-clone/web-renderer#774), and what the last move to the
+  //  next of them dropped, as it could no longer be built.
+  private _queue: Buildable[] = [];
+  private _queueDropped: Buildable[] = [];
   private _ruleRegistry: RuleRegistry;
 
   constructor(
@@ -92,16 +119,7 @@ export class CityBuild extends DataObject implements ICityBuild {
     this._city = city;
     this._ruleRegistry = ruleRegistry;
 
-    this.addKey(
-      'auto',
-      'available',
-      'building',
-      'city',
-      'cleared',
-      'cost',
-      'progress',
-      'remaining'
-    );
+    this.addKey(...cityBuildKeys);
   }
 
   add(production: Yield): void {
@@ -167,6 +185,18 @@ export class CityBuild extends DataObject implements ICityBuild {
       );
   }
 
+  /**
+   * Starts building `ItemToBuild`. Chosen by the player while it's first in the queue, it's that queued item: it leaves
+   *  the queue rather than being built twice.
+   */
+  choose(ItemToBuild: Buildable): void {
+    this.build(ItemToBuild);
+
+    if (this.queued()[0] === ItemToBuild) {
+      this.dequeue(0);
+    }
+  }
+
   build(ItemToBuild: Buildable): void {
     const buildItem = this.getAvailable(ItemToBuild);
 
@@ -202,6 +232,8 @@ export class CityBuild extends DataObject implements ICityBuild {
     this._building = null;
     this._cost.set(Infinity);
 
+    this.queueAfterClearing(reason);
+
     this._ruleRegistry.process(BuildingCancelled, this);
   }
 
@@ -216,6 +248,10 @@ export class CityBuild extends DataObject implements ICityBuild {
       };
       this._building = null;
       this._cost.set(Infinity);
+
+      // Before the rules, so a ruleset's own choice of what's next (Auto, a standing order) finds the city building the
+      //  next queued item and leaves it be: those apply once the queue is empty.
+      this.advanceQueue();
 
       this._ruleRegistry.process(BuildingComplete, this, built);
 
@@ -239,8 +275,48 @@ export class CityBuild extends DataObject implements ICityBuild {
     return this._cleared ?? null;
   }
 
+  /** Empties the queue. */
+  clearQueue(): void {
+    this._queue = [];
+  }
+
   cost(): BuildProgress {
     return this._cost;
+  }
+
+  /** Removes the queued item at `index`. A negative one is the first; one past the end does nothing. */
+  dequeue(index: number): void {
+    const queued = [...this.queued()];
+
+    queued.splice(Math.max(0, index), 1);
+
+    this._queue = queued;
+  }
+
+  /**
+   * Lines `Item` up to build after the current item: at the end, or at `at`. Only what the city can build now; one it
+   *  can't by the time it's reached is dropped then (`queueDropped`).
+   */
+  enqueue(Item: Buildable, at: number = this.queued().length): void {
+    if (!this.getAvailable(Item)) {
+      throw new TypeError(`Cannot queue ${Item.name}, it's not available.`);
+    }
+
+    const queued = [...this.queued()];
+
+    queued.splice(Math.max(0, Math.min(at, queued.length)), 0, Item);
+
+    this._queue = queued;
+  }
+
+  /**
+   * A build loaded from a save has the keys it had when it was saved: one made before the queue existed would never
+   *  send it (civ-clone/web-renderer#774). Adds those it's missing.
+   */
+  onHydrated(): void {
+    const keys = this.keys();
+
+    this.addKey(...cityBuildKeys.filter((key) => !keys.includes(key)));
   }
 
   getAvailable(Item: Buildable): BuildItem {
@@ -251,6 +327,25 @@ export class CityBuild extends DataObject implements ICityBuild {
 
   progress(): BuildProgress {
     return this._progress;
+  }
+
+  /** The queued items, priced for the city as it is now, for a client to show their cost and turns. */
+  queue(): BuildItem[] {
+    return this.queued().map(
+      (item: Buildable): BuildItem =>
+        new BuildItem(item, this.city(), this._ruleRegistry)
+    );
+  }
+
+  /** What the city builds after the current item, in order (civ-clone/web-renderer#774). */
+  queued(): Buildable[] {
+    // A build restored from a save made before the queue existed has no `_queue` at all.
+    return this._queue ?? [];
+  }
+
+  /** What the last move to the next queued item dropped, as the city could no longer build it. */
+  queueDropped(): Buildable[] {
+    return this._queueDropped ?? [];
   }
 
   remaining(): number {
@@ -275,6 +370,20 @@ export class CityBuild extends DataObject implements ICityBuild {
     this._cost.set(this._building.cost().value());
   }
 
+  /** Moves the queued item at `from` to `to`, both clamped to the queue. A `from` past the end does nothing. */
+  requeue(from: number, to: number): void {
+    const queued = [...this.queued()],
+      [moved] = queued.splice(Math.max(0, from), 1);
+
+    if (moved === undefined) {
+      return;
+    }
+
+    queued.splice(Math.max(0, Math.min(to, queued.length)), 0, moved);
+
+    this._queue = queued;
+  }
+
   revalidate(): void {
     if (this._building && !this.getAvailable(this._building.item())) {
       this.cancel('unavailable');
@@ -294,6 +403,53 @@ export class CityBuild extends DataObject implements ICityBuild {
       reason,
       item,
     };
+
+    this.queueAfterClearing(reason);
+  }
+
+  /**
+   * Starts the first queued item the city can still build, dropping any before it that it can't (`queueDropped`).
+   *  Leaves the city building nothing when none is left.
+   */
+  protected advanceQueue(): void {
+    const queued = [...this.queued()],
+      dropped: Buildable[] = [];
+
+    this._queueDropped = dropped;
+
+    while (queued.length > 0) {
+      const next = queued.shift()!;
+
+      if (this.getAvailable(next)) {
+        this._queue = queued;
+        this.build(next);
+
+        return;
+      }
+
+      dropped.push(next);
+    }
+
+    this._queue = queued;
+  }
+
+  /**
+   * What the queue does when the build is cleared for `reason`: a city that has changed hands drops its previous
+   *  owner's queue. Otherwise it's kept: a city that can no longer build its item (a rival finished the Wonder) is left
+   *  for its player to choose, and told why, as without a queue, and the queue goes on after whatever they choose. A
+   *  city on Auto isn't asked, so it goes on to its queue, before Auto chooses for it.
+   */
+  protected queueAfterClearing(reason: CityBuildClearedReason): void {
+    if (reason === 'captured') {
+      this.clearQueue();
+      this._queueDropped = [];
+
+      return;
+    }
+
+    if (reason === 'unavailable' && this.auto()) {
+      this.advanceQueue();
+    }
   }
 }
 

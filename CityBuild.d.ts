@@ -38,12 +38,20 @@ export interface ICityBuild extends IDataObject {
   building(): BuildItem | null;
   cancel(reason?: CityBuildClearedReason): void;
   check(): void;
+  choose(ItemToBuild: Buildable): void;
   cleared(): ICityBuildCleared | null;
+  clearQueue(): void;
   cost(): BuildProgress;
+  dequeue(index: number): void;
+  enqueue(Item: Buildable, at?: number): void;
   getAvailable(Item: Buildable): BuildItem;
   progress(): BuildProgress;
+  queue(): BuildItem[];
+  queued(): Buildable[];
+  queueDropped(): Buildable[];
   remaining(): number;
   reprice(): void;
+  requeue(from: number, to: number): void;
   revalidate(): void;
   setAuto(auto: boolean): void;
   setCleared(reason: CityBuildClearedReason, item?: Buildable | null): void;
@@ -58,6 +66,8 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   private _cleared;
   private _cost;
   private _progress;
+  private _queue;
+  private _queueDropped;
   private _ruleRegistry;
   constructor(
     city: City,
@@ -75,6 +85,11 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    * one having refused first.
    */
   unavailable(): IUnavailableBuildItem[];
+  /**
+   * Starts building `ItemToBuild`. Chosen by the player while it's first in the queue, it's that queued item: it leaves
+   *  the queue rather than being built twice.
+   */
+  choose(ItemToBuild: Buildable): void;
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
   /**
@@ -86,18 +101,52 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   city(): City;
   /** Why the city is building nothing, or `null` while it builds something, or when that isn't known (an older save). */
   cleared(): ICityBuildCleared | null;
+  /** Empties the queue. */
+  clearQueue(): void;
   cost(): BuildProgress;
+  /** Removes the queued item at `index`. A negative one is the first; one past the end does nothing. */
+  dequeue(index: number): void;
+  /**
+   * Lines `Item` up to build after the current item: at the end, or at `at`. Only what the city can build now; one it
+   *  can't by the time it's reached is dropped then (`queueDropped`).
+   */
+  enqueue(Item: Buildable, at?: number): void;
+  /**
+   * A build loaded from a save has the keys it had when it was saved: one made before the queue existed would never
+   *  send it (civ-clone/web-renderer#774). Adds those it's missing.
+   */
+  onHydrated(): void;
   getAvailable(Item: Buildable): BuildItem;
   progress(): BuildProgress;
+  /** The queued items, priced for the city as it is now, for a client to show their cost and turns. */
+  queue(): BuildItem[];
+  /** What the city builds after the current item, in order (civ-clone/web-renderer#774). */
+  queued(): Buildable[];
+  /** What the last move to the next queued item dropped, as the city could no longer build it. */
+  queueDropped(): Buildable[];
   remaining(): number;
   /**
    * Prices what the city is building again, for the city as it is now. A `BuildCostModifier` may depend on who owns
    *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500).
    */
   reprice(): void;
+  /** Moves the queued item at `from` to `to`, both clamped to the queue. A `from` past the end does nothing. */
+  requeue(from: number, to: number): void;
   revalidate(): void;
   setAuto(auto: boolean): void;
   /** Records why the city is building nothing, for a reason the build itself doesn't know, such as a new city. */
   setCleared(reason: CityBuildClearedReason, item?: Buildable | null): void;
+  /**
+   * Starts the first queued item the city can still build, dropping any before it that it can't (`queueDropped`).
+   *  Leaves the city building nothing when none is left.
+   */
+  protected advanceQueue(): void;
+  /**
+   * What the queue does when the build is cleared for `reason`: a city that has changed hands drops its previous
+   *  owner's queue. Otherwise it's kept: a city that can no longer build its item (a rival finished the Wonder) is left
+   *  for its player to choose, and told why, as without a queue, and the queue goes on after whatever they choose. A
+   *  city on Auto isn't asked, so it goes on to its queue, before Auto chooses for it.
+   */
+  protected queueAfterClearing(reason: CityBuildClearedReason): void;
 }
 export default CityBuild;
