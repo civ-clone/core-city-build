@@ -24,6 +24,8 @@ const cityBuildKeys = [
     'queueDropped',
     'remaining',
 ];
+// The builds being settled (see `CityBuild#settle`). Kept here, not on the build, so it is no part of a save.
+const settling = new WeakSet();
 class CityBuild extends DataObject_1.DataObject {
     constructor(city, availableCityBuildItemsRegistry = AvailableCityBuildItemsRegistry_1.instance, ruleRegistry = RuleRegistry_1.instance) {
         super();
@@ -98,6 +100,11 @@ class CityBuild extends DataObject_1.DataObject {
         this._building = buildItem;
         this._cleared = null;
         this._cost.set(this._building.cost().value());
+        // A choice made for its own sake, not as part of moving on from the last item: what that move dropped has been
+        //  said, and is said no more (civ-clone/web-renderer#875).
+        if (!settling.has(this)) {
+            this._queueDropped = [];
+        }
     }
     building() {
         return this._building;
@@ -116,8 +123,10 @@ class CityBuild extends DataObject_1.DataObject {
         };
         this._building = null;
         this._cost.set(Infinity);
-        this.queueAfterClearing(reason);
-        this._ruleRegistry.process(BulidingCancelled_1.default, this);
+        this.settle(() => {
+            this.queueAfterClearing(reason);
+            this._ruleRegistry.process(BulidingCancelled_1.default, this);
+        });
     }
     check() {
         if (this._progress.value() >= this._cost.value() && this._building) {
@@ -129,10 +138,12 @@ class CityBuild extends DataObject_1.DataObject {
             };
             this._building = null;
             this._cost.set(Infinity);
-            // Before the rules, so a ruleset's own choice of what's next (Auto, a standing order) finds the city building the
-            //  next queued item and leaves it be: those apply once the queue is empty.
-            this.advanceQueue();
-            this._ruleRegistry.process(BulidingComplete_1.default, this, built);
+            this.settle(() => {
+                // Before the rules, so a ruleset's own choice of what's next (Auto, a standing order) finds the city building
+                //  the next queued item and leaves it be: those apply once the queue is empty.
+                this.advanceQueue();
+                this._ruleRegistry.process(BulidingComplete_1.default, this, built);
+            });
             return built;
         }
         return null;
@@ -198,7 +209,10 @@ class CityBuild extends DataObject_1.DataObject {
         // A build restored from a save made before the queue existed has no `_queue` at all.
         return (_a = this._queue) !== null && _a !== void 0 ? _a : [];
     }
-    /** What the last move to the next queued item dropped, as the city could no longer build it. */
+    /**
+     * What the last move to the next queued item dropped, as the city could no longer build it. Empty again once
+     * something is chosen for the city for its own sake: by its player, or by anything else that calls `build`.
+     */
     queueDropped() {
         var _a;
         return (_a = this._queueDropped) !== null && _a !== void 0 ? _a : [];
@@ -248,17 +262,32 @@ class CityBuild extends DataObject_1.DataObject {
      */
     advanceQueue() {
         const queued = [...this.queued()], dropped = [];
-        this._queueDropped = dropped;
         while (queued.length > 0) {
             const next = queued.shift();
             if (this.getAvailable(next)) {
                 this._queue = queued;
                 this.build(next);
-                return;
+                break;
             }
             dropped.push(next);
         }
         this._queue = queued;
+        // After `build`, which forgets the last move's when it is called for its own sake.
+        this._queueDropped = dropped;
+    }
+    // Runs what follows from the current item being finished or cleared: what is chosen while it runs (the next queued
+    //  item, Auto's choice, a rule's) is part of that, and leaves `queueDropped` for whoever reports it.
+    settle(what) {
+        const already = settling.has(this);
+        settling.add(this);
+        try {
+            what();
+        }
+        finally {
+            if (!already) {
+                settling.delete(this);
+            }
+        }
     }
     /**
      * What the queue does when the build is cleared for `reason`: a city that has changed hands drops its previous

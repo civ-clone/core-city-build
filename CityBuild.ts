@@ -88,6 +88,9 @@ const cityBuildKeys: (keyof CityBuild)[] = [
   'remaining',
 ];
 
+// The builds being settled (see `CityBuild#settle`). Kept here, not on the build, so it is no part of a save.
+const settling = new WeakSet<object>();
+
 export class CityBuild extends DataObject implements ICityBuild {
   static readonly transient = [
     '_availableCityBuildItemsRegistry',
@@ -210,6 +213,12 @@ export class CityBuild extends DataObject implements ICityBuild {
     this._cleared = null;
 
     this._cost.set(this._building.cost().value());
+
+    // A choice made for its own sake, not as part of moving on from the last item: what that move dropped has been
+    //  said, and is said no more (civ-clone/web-renderer#875).
+    if (!settling.has(this)) {
+      this._queueDropped = [];
+    }
   }
 
   building(): BuildItem | null {
@@ -232,9 +241,11 @@ export class CityBuild extends DataObject implements ICityBuild {
     this._building = null;
     this._cost.set(Infinity);
 
-    this.queueAfterClearing(reason);
+    this.settle((): void => {
+      this.queueAfterClearing(reason);
 
-    this._ruleRegistry.process(BuildingCancelled, this);
+      this._ruleRegistry.process(BuildingCancelled, this);
+    });
   }
 
   check(): IDataObject | null {
@@ -249,11 +260,13 @@ export class CityBuild extends DataObject implements ICityBuild {
       this._building = null;
       this._cost.set(Infinity);
 
-      // Before the rules, so a ruleset's own choice of what's next (Auto, a standing order) finds the city building the
-      //  next queued item and leaves it be: those apply once the queue is empty.
-      this.advanceQueue();
+      this.settle((): void => {
+        // Before the rules, so a ruleset's own choice of what's next (Auto, a standing order) finds the city building
+        //  the next queued item and leaves it be: those apply once the queue is empty.
+        this.advanceQueue();
 
-      this._ruleRegistry.process(BuildingComplete, this, built);
+        this._ruleRegistry.process(BuildingComplete, this, built);
+      });
 
       return built;
     }
@@ -343,7 +356,10 @@ export class CityBuild extends DataObject implements ICityBuild {
     return this._queue ?? [];
   }
 
-  /** What the last move to the next queued item dropped, as the city could no longer build it. */
+  /**
+   * What the last move to the next queued item dropped, as the city could no longer build it. Empty again once
+   * something is chosen for the city for its own sake: by its player, or by anything else that calls `build`.
+   */
   queueDropped(): Buildable[] {
     return this._queueDropped ?? [];
   }
@@ -415,8 +431,6 @@ export class CityBuild extends DataObject implements ICityBuild {
     const queued = [...this.queued()],
       dropped: Buildable[] = [];
 
-    this._queueDropped = dropped;
-
     while (queued.length > 0) {
       const next = queued.shift()!;
 
@@ -424,13 +438,31 @@ export class CityBuild extends DataObject implements ICityBuild {
         this._queue = queued;
         this.build(next);
 
-        return;
+        break;
       }
 
       dropped.push(next);
     }
 
     this._queue = queued;
+    // After `build`, which forgets the last move's when it is called for its own sake.
+    this._queueDropped = dropped;
+  }
+
+  // Runs what follows from the current item being finished or cleared: what is chosen while it runs (the next queued
+  //  item, Auto's choice, a rule's) is part of that, and leaves `queueDropped` for whoever reports it.
+  private settle(what: () => void): void {
+    const already = settling.has(this);
+
+    settling.add(this);
+
+    try {
+      what();
+    } finally {
+      if (!already) {
+        settling.delete(this);
+      }
+    }
   }
 
   /**

@@ -122,7 +122,10 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   queue(): BuildItem[];
   /** What the city builds after the current item, in order (civ-clone/web-renderer#774). */
   queued(): Buildable[];
-  /** What the last move to the next queued item dropped, as the city could no longer build it. */
+  /**
+   * What the last move to the next queued item dropped, as the city could no longer build it. Empty again once
+   * something is chosen for the city for its own sake: by its player, or by anything else that calls `build`.
+   */
   queueDropped(): Buildable[];
   remaining(): number;
   /**
@@ -141,6 +144,7 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    *  Leaves the city building nothing when none is left.
    */
   protected advanceQueue(): void;
+  private settle;
   /**
    * What the queue does when the build is cleared for `reason`: a city that has changed hands drops its previous
    *  owner's queue. Otherwise it's kept: a city that can no longer build its item (a rival finished the Wonder) is left
