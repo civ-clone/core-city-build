@@ -552,6 +552,52 @@ describe('CityBuild', (): void => {
       expect(cityBuild.queued()).eql([]);
     });
 
+    it('should forget what it dropped once something else is chosen for the city', async (): Promise<void> => {
+      const { availableBuildItemsRegistry, cityBuild } = await setUp();
+
+      cityBuild.build(Unit);
+      cityBuild.enqueue(Second);
+      cityBuild.enqueue(Third);
+
+      availableBuildItemsRegistry.unregister(Second);
+
+      complete(cityBuild);
+
+      expect(cityBuild.queueDropped()).eql([Second]);
+
+      // The player chooses something else by hand: the drop has been said.
+      cityBuild.build(Unit);
+
+      expect(cityBuild.building()!.item()).equal(Unit);
+      expect(cityBuild.queueDropped()).eql([]);
+    });
+
+    it('should keep what it dropped when a rule chooses the next item as the last is completed', async (): Promise<void> => {
+      const { availableBuildItemsRegistry, cityBuild, ruleRegistry } =
+        await setUp();
+
+      // Auto, or a standing order: with nothing left in the queue, it chooses.
+      ruleRegistry.register(
+        new BuildingComplete(
+          new Effect((completed: CityBuild): void => {
+            if (completed.building() === null) {
+              completed.build(Unit);
+            }
+          })
+        )
+      );
+
+      cityBuild.build(Unit);
+      cityBuild.enqueue(Second);
+
+      availableBuildItemsRegistry.unregister(Second);
+
+      complete(cityBuild);
+
+      expect(cityBuild.building()!.item()).equal(Unit);
+      expect(cityBuild.queueDropped()).eql([Second]);
+    });
+
     it('should leave the city to its player when the current item can no longer be built, keeping the queue', async (): Promise<void> => {
       const { availableBuildItemsRegistry, cityBuild, ruleRegistry } =
           await setUp(),
