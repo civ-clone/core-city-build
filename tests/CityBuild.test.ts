@@ -450,18 +450,22 @@ describe('CityBuild', (): void => {
       expect(cityBuild.progress().value()).equal(0);
     });
 
-    it("should give the holding rules' ids once the progress has reached the cost, and none before", async (): Promise<void> => {
+    it("should give the holding rules' ids from the moment the item is chosen, whatever its progress", async (): Promise<void> => {
       const { cityBuild, holding, ruleRegistry } = await setUp();
 
-      expect(cityBuild.held()).eql([]);
+      // Not paid for yet: a client can say it will wait.
+      expect(cityBuild.held()).eql(['test:city/hold/unit']);
+      expect(cityBuild.remaining()).equal(10);
 
       cityBuild.add(new BuildProgress(9));
 
-      expect(cityBuild.held()).eql([]);
+      expect(cityBuild.held()).eql(['test:city/hold/unit']);
 
+      // Paid for: a client can say it is waiting now.
       cityBuild.add(new BuildProgress(1));
 
       expect(cityBuild.held()).eql(['test:city/hold/unit']);
+      expect(cityBuild.remaining()).equal(0);
 
       ruleRegistry.register(new Hold());
 
@@ -470,6 +474,17 @@ describe('CityBuild', (): void => {
       holding.on = false;
 
       expect(cityBuild.held()).eql([null]);
+    });
+
+    it('should not complete the item before its progress reaches the cost when nothing holds it', async (): Promise<void> => {
+      const { cityBuild, completed, holding } = await setUp();
+
+      holding.on = false;
+      cityBuild.add(new BuildProgress(9));
+
+      expect(cityBuild.held()).eql([]);
+      expect(cityBuild.check()).null;
+      expect(completed).not.called;
     });
 
     it('should give none while the city builds nothing', async (): Promise<void> => {
