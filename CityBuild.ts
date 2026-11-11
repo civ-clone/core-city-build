@@ -17,6 +17,7 @@ import { IBuildable as Buildable } from './Buildable';
 import BuildingCancelled from './Rules/BulidingCancelled';
 import BuildingComplete from './Rules/BulidingComplete';
 import City from '@civ-clone/core-city/City';
+import Hold from './Rules/Hold';
 import { IConstructor } from '@civ-clone/core-registry/Registry';
 import Yield from '@civ-clone/core-yield/Yield';
 import { buildRulesFor } from './lib/buildRulesFor';
@@ -60,6 +61,7 @@ export interface ICityBuild extends IDataObject {
   dequeue(index: number): void;
   enqueue(Item: Buildable, at?: number): void;
   getAvailable(Item: Buildable): BuildItem;
+  held(): (string | null)[];
   progress(): BuildProgress;
   queue(): BuildItem[];
   queued(): Buildable[];
@@ -82,6 +84,7 @@ const cityBuildKeys: (keyof CityBuild)[] = [
   'city',
   'cleared',
   'cost',
+  'held',
   'progress',
   'queue',
   'queueDropped',
@@ -248,8 +251,16 @@ export class CityBuild extends DataObject implements ICityBuild {
     });
   }
 
+  /**
+   * Completes the item being built once its progress has reached the cost, unless a `Hold` rule holds it (`held`), and
+   *  gives what was built. Otherwise gives `null`, and changes nothing.
+   */
   check(): IDataObject | null {
-    if (this._progress.value() >= this._cost.value() && this._building) {
+    if (
+      this._progress.value() >= this._cost.value() &&
+      this._building &&
+      this.held().length === 0
+    ) {
       const built = this._building.item().build(this._city, this._ruleRegistry);
 
       this._progress.set(0);
@@ -336,6 +347,28 @@ export class CityBuild extends DataObject implements ICityBuild {
     return this.available().filter(
       (available: BuildItem): boolean => available.item() === Item
     )[0];
+  }
+
+  /**
+   * The ids of the `Hold` rules keeping the city from completing what it builds (`null` for a rule with no id), once
+   *  its progress has reached the cost (civ-clone/web-renderer#959): a ruleset's own reasons, which a client can word,
+   *  as `unavailable()`'s `refusedBy`. Empty while the city builds nothing, the item isn't paid for yet, or nothing
+   *  holds it. Worked out when asked, so it is no part of a save and follows the city as it changes.
+   */
+  held(): (string | null)[] {
+    if (
+      this._building === null ||
+      this._progress.value() < this._cost.value()
+    ) {
+      return [];
+    }
+
+    const item = this._building.item();
+
+    return this._ruleRegistry
+      .get(Hold)
+      .filter((rule: Hold): boolean => rule.validate(this, item))
+      .map((rule: Hold): string | null => rule.id());
   }
 
   progress(): BuildProgress {

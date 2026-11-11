@@ -9,6 +9,7 @@ const BuildItem_1 = require("./BuildItem");
 const Yields_1 = require("./Yields");
 const BulidingCancelled_1 = require("./Rules/BulidingCancelled");
 const BulidingComplete_1 = require("./Rules/BulidingComplete");
+const Hold_1 = require("./Rules/Hold");
 const buildRulesFor_1 = require("./lib/buildRulesFor");
 // What a build sends a client: a constructor adds them, and `onHydrated` adds any a save from before one was added
 //  doesn't have.
@@ -19,6 +20,7 @@ const cityBuildKeys = [
     'city',
     'cleared',
     'cost',
+    'held',
     'progress',
     'queue',
     'queueDropped',
@@ -128,8 +130,14 @@ class CityBuild extends DataObject_1.DataObject {
             this._ruleRegistry.process(BulidingCancelled_1.default, this);
         });
     }
+    /**
+     * Completes the item being built once its progress has reached the cost, unless a `Hold` rule holds it (`held`), and
+     *  gives what was built. Otherwise gives `null`, and changes nothing.
+     */
     check() {
-        if (this._progress.value() >= this._cost.value() && this._building) {
+        if (this._progress.value() >= this._cost.value() &&
+            this._building &&
+            this.held().length === 0) {
             const built = this._building.item().build(this._city, this._ruleRegistry);
             this._progress.set(0);
             this._cleared = {
@@ -195,6 +203,23 @@ class CityBuild extends DataObject_1.DataObject {
     }
     getAvailable(Item) {
         return this.available().filter((available) => available.item() === Item)[0];
+    }
+    /**
+     * The ids of the `Hold` rules keeping the city from completing what it builds (`null` for a rule with no id), once
+     *  its progress has reached the cost (civ-clone/web-renderer#959): a ruleset's own reasons, which a client can word,
+     *  as `unavailable()`'s `refusedBy`. Empty while the city builds nothing, the item isn't paid for yet, or nothing
+     *  holds it. Worked out when asked, so it is no part of a save and follows the city as it changes.
+     */
+    held() {
+        if (this._building === null ||
+            this._progress.value() < this._cost.value()) {
+            return [];
+        }
+        const item = this._building.item();
+        return this._ruleRegistry
+            .get(Hold_1.default)
+            .filter((rule) => rule.validate(this, item))
+            .map((rule) => rule.id());
     }
     progress() {
         return this._progress;

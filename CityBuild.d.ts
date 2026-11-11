@@ -45,6 +45,7 @@ export interface ICityBuild extends IDataObject {
   dequeue(index: number): void;
   enqueue(Item: Buildable, at?: number): void;
   getAvailable(Item: Buildable): BuildItem;
+  held(): (string | null)[];
   progress(): BuildProgress;
   queue(): BuildItem[];
   queued(): Buildable[];
@@ -97,6 +98,10 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    *  what `cleared()` gives, set before the rules run, so a rule that chooses another build clears it again.
    */
   cancel(reason?: CityBuildClearedReason): void;
+  /**
+   * Completes the item being built once its progress has reached the cost, unless a `Hold` rule holds it (`held`), and
+   *  gives what was built. Otherwise gives `null`, and changes nothing.
+   */
   check(): IDataObject | null;
   city(): City;
   /** Why the city is building nothing, or `null` while it builds something, or when that isn't known (an older save). */
@@ -117,6 +122,13 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    */
   onHydrated(): void;
   getAvailable(Item: Buildable): BuildItem;
+  /**
+   * The ids of the `Hold` rules keeping the city from completing what it builds (`null` for a rule with no id), once
+   *  its progress has reached the cost (civ-clone/web-renderer#959): a ruleset's own reasons, which a client can word,
+   *  as `unavailable()`'s `refusedBy`. Empty while the city builds nothing, the item isn't paid for yet, or nothing
+   *  holds it. Worked out when asked, so it is no part of a save and follows the city as it changes.
+   */
+  held(): (string | null)[];
   progress(): BuildProgress;
   /** The queued items, priced for the city as it is now, for a client to show their cost and turns. */
   queue(): BuildItem[];
