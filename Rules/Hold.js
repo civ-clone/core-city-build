@@ -12,12 +12,19 @@ const Rule_1 = require("@civ-clone/core-rule/Rule");
  * will wait before it is paid for (with something still `remaining`), and say why the city is waiting once it is:
  *
  * ```ts
+ * // Something a city can build, and how big a city is: whatever a ruleset has for them.
+ * declare const Founder: Buildable;
+ * declare const sizeOf: (city: City) => number;
+ *
  * new Hold(
- *   'civ1-unit:city/hold/settlers-chieftain',
- *   new Criterion((cityBuild, BuildItem) => BuildItem === Settlers),
- *   new Criterion((cityBuild) => cityGrowth.getByCity(cityBuild.city()).size() === 1)
+ *   'my-rules:city/hold/founder-in-a-small-city',
+ *   new Criterion((cityBuild: CityBuild, BuildItem: Buildable) => BuildItem === Founder),
+ *   new Criterion((cityBuild: CityBuild) => sizeOf(cityBuild.city()) < 2)
  * )
  * ```
+ *
+ * Give every `Hold` rule an id: it is all a client has to word the reason, and `held` gives `null` for a rule without
+ * one.
  *
  * `held` is asked each time a build is sent to a client, so put the cheapest criterion first: `Rule` stops at the first
  * that isn't met.

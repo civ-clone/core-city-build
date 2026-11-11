@@ -129,7 +129,8 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    *  `unavailable()`'s `refusedBy`. `check()` doesn't complete the item while any are given. A client combines it with
    *  `remaining()`: ids with something still to pay mean the item will wait once it is paid for, and ids with nothing
    *  left to pay mean it is waiting now. Empty while the city builds nothing, or nothing holds the item. Worked out
-   *  when asked, so it is no part of a save and follows the city as it changes.
+   *  when asked, so it follows the city as it changes, and its value is never saved: a save holds only the key's name,
+   *  among the build's keys, which `onHydrated` adds back to a build saved without it.
    */
   held(): (string | null)[];
   progress(): BuildProgress;
