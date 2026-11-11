@@ -15,6 +15,7 @@ import BuildingComplete from '../Rules/BulidingComplete';
 import CityBuild from '../CityBuild';
 import Criterion from '@civ-clone/core-rule/Criterion';
 import Effect from '@civ-clone/core-rule/Effect';
+import Hold from '../Rules/Hold';
 import Priority from '@civ-clone/core-rule/Priority';
 import RuleRegistry from '@civ-clone/core-rule/RuleRegistry';
 import { buildCost, buildCosts } from '../Rules/BuildCost';
@@ -381,6 +382,135 @@ describe('CityBuild', (): void => {
       const { cityBuild } = await setUp();
 
       expect(cityBuild.keys()).include('cleared');
+    });
+  });
+
+  describe('a held build (civ-clone/web-renderer#959)', (): void => {
+    const setUp = async () => {
+      const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+        ruleRegistry = new RuleRegistry(),
+        cityBuild = new CityBuild(
+          await setUpCity(),
+          availableBuildItemsRegistry,
+          ruleRegistry
+        ),
+        completed = spy(),
+        // Whether the `Hold` rule below holds it.
+        holding = { on: true };
+
+      ruleRegistry.register(
+        new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
+        ...buildCost(Unit, 10),
+        new BuildingComplete(new Effect(completed)),
+        new Hold(
+          'test:city/hold/unit',
+          new Criterion(
+            (heldBuild: CityBuild, BuildItem: Buildable): boolean =>
+              heldBuild === cityBuild && BuildItem === Unit
+          ),
+          new Criterion((): boolean => holding.on)
+        )
+      );
+
+      availableBuildItemsRegistry.register(Unit);
+
+      cityBuild.build(Unit);
+
+      return { cityBuild, completed, holding, ruleRegistry };
+    };
+
+    it("should not complete the item while a `Hold` rule's criteria are met", async (): Promise<void> => {
+      const { cityBuild, completed } = await setUp();
+
+      cityBuild.add(new BuildProgress(10));
+
+      expect(cityBuild.check()).null;
+      expect(completed).not.called;
+      expect(cityBuild.building()!.item()).equal(Unit);
+      expect(cityBuild.cleared()).null;
+      expect(cityBuild.progress().value()).equal(10);
+    });
+
+    it('should keep the progress, which goes on growing past the cost, and complete it once nothing holds it', async (): Promise<void> => {
+      const { cityBuild, completed, holding } = await setUp();
+
+      cityBuild.add(new BuildProgress(10));
+      cityBuild.check();
+      cityBuild.add(new BuildProgress(4));
+      cityBuild.check();
+
+      expect(cityBuild.progress().value()).equal(14);
+      expect(cityBuild.remaining()).equal(-4);
+
+      holding.on = false;
+
+      expect(cityBuild.check()).instanceof(Unit);
+      expect(completed).called.once;
+      expect(cityBuild.cleared()).eql({ reason: 'completed', item: Unit });
+      expect(cityBuild.progress().value()).equal(0);
+    });
+
+    it("should give the holding rules' ids from the moment the item is chosen, whatever its progress", async (): Promise<void> => {
+      const { cityBuild, holding, ruleRegistry } = await setUp();
+
+      // Not paid for yet: a client can say it will wait.
+      expect(cityBuild.held()).eql(['test:city/hold/unit']);
+      expect(cityBuild.remaining()).equal(10);
+
+      cityBuild.add(new BuildProgress(9));
+
+      expect(cityBuild.held()).eql(['test:city/hold/unit']);
+
+      // Paid for: a client can say it is waiting now.
+      cityBuild.add(new BuildProgress(1));
+
+      expect(cityBuild.held()).eql(['test:city/hold/unit']);
+      expect(cityBuild.remaining()).equal(0);
+
+      ruleRegistry.register(new Hold());
+
+      expect(cityBuild.held()).eql(['test:city/hold/unit', null]);
+
+      holding.on = false;
+
+      expect(cityBuild.held()).eql([null]);
+    });
+
+    it('should not complete the item before its progress reaches the cost when nothing holds it', async (): Promise<void> => {
+      const { cityBuild, completed, holding } = await setUp();
+
+      holding.on = false;
+      cityBuild.add(new BuildProgress(9));
+
+      expect(cityBuild.held()).eql([]);
+      expect(cityBuild.check()).null;
+      expect(completed).not.called;
+    });
+
+    it('should give none while the city builds nothing', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      cityBuild.add(new BuildProgress(10));
+      cityBuild.cancel();
+
+      expect(cityBuild.held()).eql([]);
+    });
+
+    it('should not hold for a rule that is switched off', async (): Promise<void> => {
+      const { cityBuild, completed, ruleRegistry } = await setUp();
+
+      ruleRegistry.getById('test:city/hold/unit')!.disable();
+      cityBuild.add(new BuildProgress(10));
+
+      expect(cityBuild.held()).eql([]);
+      expect(cityBuild.check()).instanceof(Unit);
+      expect(completed).called.once;
+    });
+
+    it('should be sent with the build', async (): Promise<void> => {
+      const { cityBuild } = await setUp();
+
+      expect(cityBuild.keys()).include('held');
     });
   });
 

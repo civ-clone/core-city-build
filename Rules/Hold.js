@@ -1,0 +1,36 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Hold = void 0;
+const Rule_1 = require("@civ-clone/core-rule/Rule");
+/**
+ * Holds a city's build: while any enabled `Hold` rule's criteria are met for the build and the item it is building,
+ * `CityBuild#check` doesn't complete it, however much progress it has. Nothing else changes: the item stays chosen,
+ * its progress stays and goes on adding up past the cost, and no `BuildingComplete` rule runs, until a turn on which no
+ * rule holds it (civ-clone/web-renderer#959). Only the criteria are asked; an effect is never run.
+ *
+ * `CityBuild#held` gives the ids of the rules holding a build whatever its progress, so a client can warn that an item
+ * will wait before it is paid for (with something still `remaining`), and say why the city is waiting once it is:
+ *
+ * ```ts
+ * // Something a city can build, and how big a city is: whatever a ruleset has for them.
+ * declare const Founder: Buildable;
+ * declare const sizeOf: (city: City) => number;
+ *
+ * new Hold(
+ *   'my-rules:city/hold/founder-in-a-small-city',
+ *   new Criterion((cityBuild: CityBuild, BuildItem: Buildable) => BuildItem === Founder),
+ *   new Criterion((cityBuild: CityBuild) => sizeOf(cityBuild.city()) < 2)
+ * )
+ * ```
+ *
+ * Give every `Hold` rule an id: it is all a client has to word the reason, and `held` gives `null` for a rule without
+ * one.
+ *
+ * `held` is asked each time a build is sent to a client, so put the cheapest criterion first: `Rule` stops at the first
+ * that isn't met.
+ */
+class Hold extends Rule_1.default {
+}
+exports.Hold = Hold;
+exports.default = Hold;
+//# sourceMappingURL=Hold.js.map

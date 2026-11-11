@@ -9,6 +9,7 @@ const BuildItem_1 = require("./BuildItem");
 const Yields_1 = require("./Yields");
 const BulidingCancelled_1 = require("./Rules/BulidingCancelled");
 const BulidingComplete_1 = require("./Rules/BulidingComplete");
+const Hold_1 = require("./Rules/Hold");
 const buildRulesFor_1 = require("./lib/buildRulesFor");
 // What a build sends a client: a constructor adds them, and `onHydrated` adds any a save from before one was added
 //  doesn't have.
@@ -19,6 +20,7 @@ const cityBuildKeys = [
     'city',
     'cleared',
     'cost',
+    'held',
     'progress',
     'queue',
     'queueDropped',
@@ -128,8 +130,15 @@ class CityBuild extends DataObject_1.DataObject {
             this._ruleRegistry.process(BulidingCancelled_1.default, this);
         });
     }
+    /**
+     * Completes the item being built once its progress has reached the cost and no `Hold` rule holds it (`held()` is
+     *  empty), and gives what was built. Otherwise gives `null`, and changes nothing: a held item stays chosen, and its
+     *  progress goes on adding up.
+     */
     check() {
-        if (this._progress.value() >= this._cost.value() && this._building) {
+        if (this._progress.value() >= this._cost.value() &&
+            this._building &&
+            this.held().length === 0) {
             const built = this._building.item().build(this._city, this._ruleRegistry);
             this._progress.set(0);
             this._cleared = {
@@ -195,6 +204,25 @@ class CityBuild extends DataObject_1.DataObject {
     }
     getAvailable(Item) {
         return this.available().filter((available) => available.item() === Item)[0];
+    }
+    /**
+     * The ids of the enabled `Hold` rules whose criteria are met for what the city is building (`null` for a rule with
+     *  no id), whatever its progress (civ-clone/web-renderer#959): a ruleset's own reasons, which a client can word, as
+     *  `unavailable()`'s `refusedBy`. `check()` doesn't complete the item while any are given. A client combines it with
+     *  `remaining()`: ids with something still to pay mean the item will wait once it is paid for, and ids with nothing
+     *  left to pay mean it is waiting now. Empty while the city builds nothing, or nothing holds the item. Worked out
+     *  when asked, so it follows the city as it changes, and its value is never saved: a save holds only the key's name,
+     *  among the build's keys, which `onHydrated` adds back to a build saved without it.
+     */
+    held() {
+        if (this._building === null) {
+            return [];
+        }
+        const item = this._building.item();
+        return this._ruleRegistry
+            .get(Hold_1.default)
+            .filter((rule) => rule.validate(this, item))
+            .map((rule) => rule.id());
     }
     progress() {
         return this._progress;

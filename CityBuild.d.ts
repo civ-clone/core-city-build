@@ -45,6 +45,7 @@ export interface ICityBuild extends IDataObject {
   dequeue(index: number): void;
   enqueue(Item: Buildable, at?: number): void;
   getAvailable(Item: Buildable): BuildItem;
+  held(): (string | null)[];
   progress(): BuildProgress;
   queue(): BuildItem[];
   queued(): Buildable[];
@@ -97,6 +98,11 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    *  what `cleared()` gives, set before the rules run, so a rule that chooses another build clears it again.
    */
   cancel(reason?: CityBuildClearedReason): void;
+  /**
+   * Completes the item being built once its progress has reached the cost and no `Hold` rule holds it (`held()` is
+   *  empty), and gives what was built. Otherwise gives `null`, and changes nothing: a held item stays chosen, and its
+   *  progress goes on adding up.
+   */
   check(): IDataObject | null;
   city(): City;
   /** Why the city is building nothing, or `null` while it builds something, or when that isn't known (an older save). */
@@ -117,6 +123,16 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    */
   onHydrated(): void;
   getAvailable(Item: Buildable): BuildItem;
+  /**
+   * The ids of the enabled `Hold` rules whose criteria are met for what the city is building (`null` for a rule with
+   *  no id), whatever its progress (civ-clone/web-renderer#959): a ruleset's own reasons, which a client can word, as
+   *  `unavailable()`'s `refusedBy`. `check()` doesn't complete the item while any are given. A client combines it with
+   *  `remaining()`: ids with something still to pay mean the item will wait once it is paid for, and ids with nothing
+   *  left to pay mean it is waiting now. Empty while the city builds nothing, or nothing holds the item. Worked out
+   *  when asked, so it follows the city as it changes, and its value is never saved: a save holds only the key's name,
+   *  among the build's keys, which `onHydrated` adds back to a build saved without it.
+   */
+  held(): (string | null)[];
   progress(): BuildProgress;
   /** The queued items, priced for the city as it is now, for a client to show their cost and turns. */
   queue(): BuildItem[];
