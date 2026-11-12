@@ -619,6 +619,10 @@ describe('CityBuild', (): void => {
         cityBuild.building(),
         new Unit(),
         'Unit',
+        // Functions and classes a city can't build: they have no static `build`.
+        (): void => {},
+        Date,
+        class NotBuildable {},
       ].forEach((notAnItem): void => {
         expect(
           () => cityBuild.heldFor(notAnItem as unknown as Buildable),

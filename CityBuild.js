@@ -239,11 +239,13 @@ class CityBuild extends DataObject_1.DataObject {
      *  now", which can be wrong either way: a size-2 city with Settlers twice in its queue will hold the second, though
      *  the answer is none, and a size-1 city that will have grown by then is told Settlers would wait, though they won't.
      *
-     * `Item` is the class an item is built from, as `building().item()` and `queued()` give it. Anything else (a
-     *  `BuildItem`, an instance, `null`, `undefined`) is a `TypeError`, rather than an answer about something else.
+     * `Item` is the class an item is built from, as `building().item()` and `queued()` give it: something a city can
+     *  build, with a static `build`. Anything else (a `BuildItem`, an instance, `null`, `undefined`, a function or class
+     *  with no `build`) is a `TypeError`, rather than an answer about something else. Whether this city may build it is
+     *  not asked: that is `available()`.
      */
     heldFor(Item) {
-        if (typeof Item !== 'function') {
+        if (typeof Item !== 'function' || typeof Item.build !== 'function') {
             throw new TypeError(`Cannot say what would hold ${String(Item)}, it's not something a city builds.`);
         }
         return this._ruleRegistry
