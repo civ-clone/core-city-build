@@ -9,6 +9,7 @@ const BuildItem_1 = require("./BuildItem");
 const Yields_1 = require("./Yields");
 const BulidingCancelled_1 = require("./Rules/BulidingCancelled");
 const BulidingComplete_1 = require("./Rules/BulidingComplete");
+const BuildingHeld_1 = require("./Rules/BuildingHeld");
 const Hold_1 = require("./Rules/Hold");
 const buildRulesFor_1 = require("./lib/buildRulesFor");
 // What a build sends a client: a constructor adds them, and `onHydrated` adds any a save from before one was added
@@ -47,8 +48,22 @@ class CityBuild extends DataObject_1.DataObject {
         this._ruleRegistry = ruleRegistry;
         this.addKey(...cityBuildKeys);
     }
+    /**
+     * Adds `production` to the progress. When it pays for the item being built (`remaining()` was more than nothing, and
+     *  is nothing or less) and `Hold` rules hold the item, processes the `BuildingHeld` rules once, with the item and the
+     *  ids `held()` gives (civ-clone/web-renderer#970). Nothing is kept to know it: `held()` is only asked when the item
+     *  is paid for by these shields.
+     */
     add(production) {
+        const unpaid = this.remaining() > 0;
         this._progress.add(production);
+        if (!unpaid || this.remaining() > 0) {
+            return;
+        }
+        const held = this.held();
+        if (held.length > 0) {
+            this._ruleRegistry.process(BuildingHeld_1.default, this, this._building.item(), held);
+        }
     }
     auto() {
         // A build restored from a save made before Auto existed has no `_auto` at all.
@@ -213,12 +228,17 @@ class CityBuild extends DataObject_1.DataObject {
      *  left to pay mean it is waiting now. Empty while the city builds nothing, or nothing holds the item. Worked out
      *  when asked, so it follows the city as it changes, and its value is never saved: a save holds only the key's name,
      *  among the build's keys, which `onHydrated` adds back to a build saved without it.
+     *
+     * Given an `item`, the ids of the rules that would hold the city's build of it, whether or not the city is building
+     *  it, or anything (civ-clone/web-renderer#970): for saying, beside an item the city could build or has queued, that
+     *  it will wait. The answer is for the city as it is now, as a queued item's cost is.
      */
-    held() {
-        if (this._building === null) {
+    held(item) {
+        var _a, _b;
+        if (item === void 0) { item = (_b = (_a = this._building) === null || _a === void 0 ? void 0 : _a.item()) !== null && _b !== void 0 ? _b : null; }
+        if (item === null) {
             return [];
         }
-        const item = this._building.item();
         return this._ruleRegistry
             .get(Hold_1.default)
             .filter((rule) => rule.validate(this, item))

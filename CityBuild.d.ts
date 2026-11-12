@@ -45,7 +45,7 @@ export interface ICityBuild extends IDataObject {
   dequeue(index: number): void;
   enqueue(Item: Buildable, at?: number): void;
   getAvailable(Item: Buildable): BuildItem;
-  held(): (string | null)[];
+  held(item?: Buildable): (string | null)[];
   progress(): BuildProgress;
   queue(): BuildItem[];
   queued(): Buildable[];
@@ -75,6 +75,12 @@ export declare class CityBuild extends DataObject implements ICityBuild {
     availableCityBuildItemsRegistry?: AvailableCityBuildItemsRegistry,
     ruleRegistry?: RuleRegistry
   );
+  /**
+   * Adds `production` to the progress. When it pays for the item being built (`remaining()` was more than nothing, and
+   *  is nothing or less) and `Hold` rules hold the item, processes the `BuildingHeld` rules once, with the item and the
+   *  ids `held()` gives (civ-clone/web-renderer#970). Nothing is kept to know it: `held()` is only asked when the item
+   *  is paid for by these shields.
+   */
   add(production: Yield): void;
   auto(): boolean;
   available(): BuildItem[];
@@ -131,8 +137,12 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    *  left to pay mean it is waiting now. Empty while the city builds nothing, or nothing holds the item. Worked out
    *  when asked, so it follows the city as it changes, and its value is never saved: a save holds only the key's name,
    *  among the build's keys, which `onHydrated` adds back to a build saved without it.
+   *
+   * Given an `item`, the ids of the rules that would hold the city's build of it, whether or not the city is building
+   *  it, or anything (civ-clone/web-renderer#970): for saying, beside an item the city could build or has queued, that
+   *  it will wait. The answer is for the city as it is now, as a queued item's cost is.
    */
-  held(): (string | null)[];
+  held(item?: Buildable | null): (string | null)[];
   progress(): BuildProgress;
   /** The queued items, priced for the city as it is now, for a client to show their cost and turns. */
   queue(): BuildItem[];

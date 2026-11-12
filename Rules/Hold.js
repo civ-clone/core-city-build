@@ -26,6 +26,13 @@ const Rule_1 = require("@civ-clone/core-rule/Rule");
  * Give every `Hold` rule an id: it is all a client has to word the reason, and `held` gives `null` for a rule without
  * one.
  *
+ * A criterion reads the item from its second argument, never from `cityBuild.building()`: `held(item)` asks about an
+ * item the city isn't building (yet), to say beside it in a build menu or queue that it would wait
+ * (civ-clone/web-renderer#970), and the city may be building something else, or nothing.
+ *
+ * When shields pay for a held build, the `BuildingHeld` rules are processed once, so a ruleset can announce that it is
+ * waiting.
+ *
  * `held` is asked each time a build is sent to a client, so put the cheapest criterion first: `Rule` stops at the first
  * that isn't met.
  */
