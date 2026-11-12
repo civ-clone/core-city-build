@@ -9,6 +9,7 @@ const BuildItem_1 = require("./BuildItem");
 const Yields_1 = require("./Yields");
 const BulidingCancelled_1 = require("./Rules/BulidingCancelled");
 const BulidingComplete_1 = require("./Rules/BulidingComplete");
+const BuildingHeld_1 = require("./Rules/BuildingHeld");
 const Hold_1 = require("./Rules/Hold");
 const buildRulesFor_1 = require("./lib/buildRulesFor");
 // What a build sends a client: a constructor adds them, and `onHydrated` adds any a save from before one was added
@@ -134,28 +135,36 @@ class CityBuild extends DataObject_1.DataObject {
      * Completes the item being built once its progress has reached the cost and no `Hold` rule holds it (`held()` is
      *  empty), and gives what was built. Otherwise gives `null`, and changes nothing: a held item stays chosen, and its
      *  progress goes on adding up.
+     *
+     * Each time it doesn't complete an item that is paid for because `Hold` rules hold it, it processes the
+     *  `BuildingHeld` rules, with the item and the ids `held()` gives (civ-clone/web-renderer#970): in play, once a turn
+     *  for as long as the build waits. Nothing is kept to know whether it has been said before; that is for whoever
+     *  listens.
      */
     check() {
-        if (this._progress.value() >= this._cost.value() &&
-            this._building &&
-            this.held().length === 0) {
-            const built = this._building.item().build(this._city, this._ruleRegistry);
-            this._progress.set(0);
-            this._cleared = {
-                reason: 'completed',
-                item: this._building.item(),
-            };
-            this._building = null;
-            this._cost.set(Infinity);
-            this.settle(() => {
-                // Before the rules, so a ruleset's own choice of what's next (Auto, a standing order) finds the city building
-                //  the next queued item and leaves it be: those apply once the queue is empty.
-                this.advanceQueue();
-                this._ruleRegistry.process(BulidingComplete_1.default, this, built);
-            });
-            return built;
+        if (!(this._progress.value() >= this._cost.value()) || !this._building) {
+            return null;
         }
-        return null;
+        const held = this.held();
+        if (held.length > 0) {
+            this._ruleRegistry.process(BuildingHeld_1.default, this, this._building.item(), held);
+            return null;
+        }
+        const built = this._building.item().build(this._city, this._ruleRegistry);
+        this._progress.set(0);
+        this._cleared = {
+            reason: 'completed',
+            item: this._building.item(),
+        };
+        this._building = null;
+        this._cost.set(Infinity);
+        this.settle(() => {
+            // Before the rules, so a ruleset's own choice of what's next (Auto, a standing order) finds the city building
+            //  the next queued item and leaves it be: those apply once the queue is empty.
+            this.advanceQueue();
+            this._ruleRegistry.process(BulidingComplete_1.default, this, built);
+        });
+        return built;
     }
     city() {
         return this._city;
@@ -212,16 +221,36 @@ class CityBuild extends DataObject_1.DataObject {
      *  `remaining()`: ids with something still to pay mean the item will wait once it is paid for, and ids with nothing
      *  left to pay mean it is waiting now. Empty while the city builds nothing, or nothing holds the item. Worked out
      *  when asked, so it follows the city as it changes, and its value is never saved: a save holds only the key's name,
-     *  among the build's keys, which `onHydrated` adds back to a build saved without it.
+     *  among the build's keys, which `onHydrated` adds back to a build saved without it. It is `heldFor` the item being
+     *  built.
      */
     held() {
         if (this._building === null) {
             return [];
         }
-        const item = this._building.item();
+        return this.heldFor(this._building.item());
+    }
+    /**
+     * The ids of the enabled `Hold` rules that would hold this city's build of `Item` (`null` for a rule with no id),
+     *  whether the city is building it, something else or nothing (civ-clone/web-renderer#970): for a build menu to say,
+     *  beside an item, that it would wait once paid for. Not sent with the build: a client asks it for the items it shows.
+     *
+     * The answer is for the city as it is now. Beside a queued item it means "would wait if the city reached it as it is
+     *  now", which can be wrong either way: a size-2 city with Settlers twice in its queue will hold the second, though
+     *  the answer is none, and a size-1 city that will have grown by then is told Settlers would wait, though they won't.
+     *
+     * `Item` is the class an item is built from, as `building().item()` and `queued()` give it: something a city can
+     *  build, with a static `build`. Anything else (a `BuildItem`, an instance, `null`, `undefined`, a function or class
+     *  with no `build`) is a `TypeError`, rather than an answer about something else. Whether this city may build it is
+     *  not asked: that is `available()`.
+     */
+    heldFor(Item) {
+        if (typeof Item !== 'function' || typeof Item.build !== 'function') {
+            throw new TypeError(`Cannot say what would hold ${String(Item)}, it's not something a city builds.`);
+        }
         return this._ruleRegistry
             .get(Hold_1.default)
-            .filter((rule) => rule.validate(this, item))
+            .filter((rule) => rule.validate(this, Item))
             .map((rule) => rule.id());
     }
     progress() {
