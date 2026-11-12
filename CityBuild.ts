@@ -62,7 +62,8 @@ export interface ICityBuild extends IDataObject {
   dequeue(index: number): void;
   enqueue(Item: Buildable, at?: number): void;
   getAvailable(Item: Buildable): BuildItem;
-  held(item?: Buildable): (string | null)[];
+  held(): (string | null)[];
+  heldFor(Item: Buildable): (string | null)[];
   progress(): BuildProgress;
   queue(): BuildItem[];
   queued(): Buildable[];
@@ -129,31 +130,8 @@ export class CityBuild extends DataObject implements ICityBuild {
     this.addKey(...cityBuildKeys);
   }
 
-  /**
-   * Adds `production` to the progress. When it pays for the item being built (`remaining()` was more than nothing, and
-   *  is nothing or less) and `Hold` rules hold the item, processes the `BuildingHeld` rules once, with the item and the
-   *  ids `held()` gives (civ-clone/web-renderer#970). Nothing is kept to know it: `held()` is only asked when the item
-   *  is paid for by these shields.
-   */
   add(production: Yield): void {
-    const unpaid = this.remaining() > 0;
-
     this._progress.add(production);
-
-    if (!unpaid || this.remaining() > 0) {
-      return;
-    }
-
-    const held = this.held();
-
-    if (held.length > 0) {
-      this._ruleRegistry.process(
-        BuildingHeld,
-        this,
-        this._building!.item(),
-        held
-      );
-    }
   }
 
   auto(): boolean {
@@ -279,35 +257,49 @@ export class CityBuild extends DataObject implements ICityBuild {
    * Completes the item being built once its progress has reached the cost and no `Hold` rule holds it (`held()` is
    *  empty), and gives what was built. Otherwise gives `null`, and changes nothing: a held item stays chosen, and its
    *  progress goes on adding up.
+   *
+   * Each time it doesn't complete an item that is paid for because `Hold` rules hold it, it processes the
+   *  `BuildingHeld` rules, with the item and the ids `held()` gives (civ-clone/web-renderer#970): in play, once a turn
+   *  for as long as the build waits. Nothing is kept to know whether it has been said before; that is for whoever
+   *  listens.
    */
   check(): IDataObject | null {
-    if (
-      this._progress.value() >= this._cost.value() &&
-      this._building &&
-      this.held().length === 0
-    ) {
-      const built = this._building.item().build(this._city, this._ruleRegistry);
-
-      this._progress.set(0);
-      this._cleared = {
-        reason: 'completed',
-        item: this._building.item(),
-      };
-      this._building = null;
-      this._cost.set(Infinity);
-
-      this.settle((): void => {
-        // Before the rules, so a ruleset's own choice of what's next (Auto, a standing order) finds the city building
-        //  the next queued item and leaves it be: those apply once the queue is empty.
-        this.advanceQueue();
-
-        this._ruleRegistry.process(BuildingComplete, this, built);
-      });
-
-      return built;
+    if (!(this._progress.value() >= this._cost.value()) || !this._building) {
+      return null;
     }
 
-    return null;
+    const held = this.held();
+
+    if (held.length > 0) {
+      this._ruleRegistry.process(
+        BuildingHeld,
+        this,
+        this._building.item(),
+        held
+      );
+
+      return null;
+    }
+
+    const built = this._building.item().build(this._city, this._ruleRegistry);
+
+    this._progress.set(0);
+    this._cleared = {
+      reason: 'completed',
+      item: this._building.item(),
+    };
+    this._building = null;
+    this._cost.set(Infinity);
+
+    this.settle((): void => {
+      // Before the rules, so a ruleset's own choice of what's next (Auto, a standing order) finds the city building
+      //  the next queued item and leaves it be: those apply once the queue is empty.
+      this.advanceQueue();
+
+      this._ruleRegistry.process(BuildingComplete, this, built);
+    });
+
+    return built;
   }
 
   city(): City {
@@ -381,22 +373,41 @@ export class CityBuild extends DataObject implements ICityBuild {
    *  `remaining()`: ids with something still to pay mean the item will wait once it is paid for, and ids with nothing
    *  left to pay mean it is waiting now. Empty while the city builds nothing, or nothing holds the item. Worked out
    *  when asked, so it follows the city as it changes, and its value is never saved: a save holds only the key's name,
-   *  among the build's keys, which `onHydrated` adds back to a build saved without it.
-   *
-   * Given an `item`, the ids of the rules that would hold the city's build of it, whether or not the city is building
-   *  it, or anything (civ-clone/web-renderer#970): for saying, beside an item the city could build or has queued, that
-   *  it will wait. The answer is for the city as it is now, as a queued item's cost is.
+   *  among the build's keys, which `onHydrated` adds back to a build saved without it. It is `heldFor` the item being
+   *  built.
    */
-  held(
-    item: Buildable | null = this._building?.item() ?? null
-  ): (string | null)[] {
-    if (item === null) {
+  held(): (string | null)[] {
+    if (this._building === null) {
       return [];
+    }
+
+    return this.heldFor(this._building.item());
+  }
+
+  /**
+   * The ids of the enabled `Hold` rules that would hold this city's build of `Item` (`null` for a rule with no id),
+   *  whether the city is building it, something else or nothing (civ-clone/web-renderer#970): for a build menu to say,
+   *  beside an item, that it would wait once paid for. Not sent with the build: a client asks it for the items it shows.
+   *
+   * The answer is for the city as it is now. Beside a queued item it means "would wait if the city reached it as it is
+   *  now", which can be wrong either way: a size-2 city with Settlers twice in its queue will hold the second, though
+   *  the answer is none, and a size-1 city that will have grown by then is told Settlers would wait, though they won't.
+   *
+   * `Item` is the class an item is built from, as `building().item()` and `queued()` give it. Anything else (a
+   *  `BuildItem`, an instance, `null`, `undefined`) is a `TypeError`, rather than an answer about something else.
+   */
+  heldFor(Item: Buildable): (string | null)[] {
+    if (typeof Item !== 'function') {
+      throw new TypeError(
+        `Cannot say what would hold ${String(
+          Item
+        )}, it's not something a city builds.`
+      );
     }
 
     return this._ruleRegistry
       .get(Hold)
-      .filter((rule: Hold): boolean => rule.validate(this, item))
+      .filter((rule: Hold): boolean => rule.validate(this, Item))
       .map((rule: Hold): string | null => rule.id());
   }
 

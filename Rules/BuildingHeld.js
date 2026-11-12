@@ -3,15 +3,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuildingHeld = void 0;
 const Rule_1 = require("@civ-clone/core-rule/Rule");
 /**
- * Processed once, when shields added to a build (`CityBuild#add`: production, a purchase, a Caravan's help) pay for
- * the item it is building and `Hold` rules then hold it: the moment the build starts waiting, with the item and the ids
- * `CityBuild#held` gives (civ-clone/web-renderer#970). A ruleset announces it from here, as it announces a completed
- * build from `BuildingComplete`.
+ * Processed by `CityBuild#check` each time it doesn't complete a build that is paid for (its progress has reached the
+ * cost) because `Hold` rules hold it, with the build, the item and the ids `CityBuild#held` gives
+ * (civ-clone/web-renderer#970), as `BuildingComplete` is processed when it does complete one. In play, `check` runs once
+ * a turn, so this is processed every turn the build goes on waiting: on the first turn, however it was paid for
+ * (production, a purchase, a Caravan's help, a cheaper item chosen with the shields already there), and again on each
+ * turn after.
  *
- * Nothing is saved for it: it is worked out from the progress before and after the shields are added, so it isn't
- * processed again on the turns the build goes on waiting, nor for a build that completes (nothing holds it), nor for
- * one paid for some other way (a cheaper item chosen with the shields already there, a new price). A build that is
- * paid for again after its progress is emptied (a Diplomat's sabotage) is processed again.
+ * Nothing is kept to know whether it has been processed before, so nothing is saved for it, and a build loaded from a
+ * save already waiting is processed on its next `check` like any other. Saying it to a player once is up to whoever
+ * listens: keep the builds already told of, and forget one once it completes, is cancelled, changes item, or is no
+ * longer held.
  */
 class BuildingHeld extends Rule_1.default {
 }
