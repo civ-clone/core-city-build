@@ -788,6 +788,53 @@ describe('CityBuild', (): void => {
       expect(cityBuild.held()).eql(['test:city/hold/unit']);
     });
 
+    it('should not be processed when a cheaper item is chosen with the shields already there', async (): Promise<void> => {
+      class Dearer extends Buildable {
+        public static build() {
+          return new Dearer();
+        }
+      }
+
+      const { cityBuild, events, ruleRegistry } = await setUp();
+
+      ruleRegistry.register(...buildCost(Dearer, 20));
+      (
+        cityBuild as unknown as {
+          _availableCityBuildItemsRegistry: AvailableCityBuildItemsRegistry;
+        }
+      )._availableCityBuildItemsRegistry.register(Dearer);
+
+      cityBuild.build(Dearer);
+      cityBuild.add(new BuildProgress(10));
+      cityBuild.build(Unit);
+      cityBuild.add(new BuildProgress(1));
+
+      expect(cityBuild.remaining()).equal(-1);
+      expect(events).eql([]);
+      expect(cityBuild.held()).eql(['test:city/hold/unit']);
+    });
+
+    it('should not be processed when a new price pays for it', async (): Promise<void> => {
+      const { cityBuild, events, ruleRegistry } = await setUp(),
+        halved = { on: false };
+
+      ruleRegistry.register(
+        new BuildCostModifier(
+          new Criterion((): boolean => halved.on),
+          new Effect((buildItem, buildCity, cost: number): number => cost / 2)
+        )
+      );
+
+      cityBuild.add(new BuildProgress(6));
+      halved.on = true;
+      cityBuild.reprice();
+      cityBuild.add(new BuildProgress(1));
+
+      expect(cityBuild.remaining()).equal(-2);
+      expect(events).eql([]);
+      expect(cityBuild.held()).eql(['test:city/hold/unit']);
+    });
+
     it('should not be processed by a build that can no longer build its item', async (): Promise<void> => {
       const { cityBuild, events } = await setUp();
 
