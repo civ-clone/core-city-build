@@ -12,6 +12,7 @@ import {
 } from '@civ-clone/core-rule/RuleRegistry';
 import Build from './Rules/Build';
 import BuildItem from './BuildItem';
+import BuildOverflow from './Rules/BuildOverflow';
 import { BuildProgress } from './Yields';
 import { IBuildable as Buildable } from './Buildable';
 import BuildingCancelled from './Rules/BulidingCancelled';
@@ -20,6 +21,7 @@ import BuildingHeld from './Rules/BuildingHeld';
 import City from '@civ-clone/core-city/City';
 import Hold from './Rules/Hold';
 import { IConstructor } from '@civ-clone/core-registry/Registry';
+import ProductionChanged from './Rules/ProductionChanged';
 import Yield from '@civ-clone/core-yield/Yield';
 import { buildRulesFor } from './lib/buildRulesFor';
 
@@ -93,6 +95,17 @@ const cityBuildKeys: (keyof CityBuild)[] = [
   'remaining',
 ];
 
+/**
+ * What a build had before its first change of item this turn (see `CityBuild#build`), and the progress the last
+ * `ProductionChanged` answer left it with: a progress that no longer matches was set by something else, and the
+ * baseline no longer applies.
+ */
+export interface ICityBuildChangedFrom {
+  item: Buildable | null;
+  progress: number;
+  left: number;
+}
+
 // The builds being settled (see `CityBuild#settle`). Kept here, not on the build, so it is no part of a save.
 const settling = new WeakSet<object>();
 
@@ -104,6 +117,10 @@ export class CityBuild extends DataObject implements ICityBuild {
   // Whether the city chooses what it builds next by itself (civ-clone/web-renderer#194). Nothing here acts on it: the
   //  ruleset's `BuildingComplete` and `BuildingCancelled` rules do, with `lib/autoBuild`.
   private _auto: boolean = false;
+  // What the build had before its first change of item since its progress last went in or it was last checked, for
+  //  `ProductionChanged` rules. Declared, never initialised: it exists only while a ruleset's rule has made a change
+  //  this turn, so a build with none has no such field to save (see `productionChanged`).
+  private declare _changedFrom?: ICityBuildChangedFrom;
   private _availableCityBuildItemsRegistry: AvailableCityBuildItemsRegistry;
   private _building: BuildItem | null = null;
   private _city: City;
@@ -130,7 +147,10 @@ export class CityBuild extends DataObject implements ICityBuild {
     this.addKey(...cityBuildKeys);
   }
 
+  /** Adds `production` to the progress, settling the turn's changes of item (see `ProductionChanged`). */
   add(production: Yield): void {
+    this.forgetChange();
+
     this._progress.add(production);
   }
 
@@ -214,6 +234,8 @@ export class CityBuild extends DataObject implements ICityBuild {
       );
     }
 
+    const previous = this._building?.item() ?? this._cleared?.item ?? null;
+
     this._building = buildItem;
     this._cleared = null;
 
@@ -223,6 +245,8 @@ export class CityBuild extends DataObject implements ICityBuild {
     //  said, and is said no more (civ-clone/web-renderer#875).
     if (!settling.has(this)) {
       this._queueDropped = [];
+
+      this.productionChanged(previous, ItemToBuild);
     }
   }
 
@@ -235,6 +259,8 @@ export class CityBuild extends DataObject implements ICityBuild {
    *  what `cleared()` gives, set before the rules run, so a rule that chooses another build clears it again.
    */
   cancel(reason: CityBuildClearedReason = 'cancelled'): void {
+    this.forgetChange();
+
     if (this._building === null) {
       return;
     }
@@ -262,8 +288,14 @@ export class CityBuild extends DataObject implements ICityBuild {
    *  `BuildingHeld` rules, with the item and the ids `held()` gives (civ-clone/web-renderer#970): in play, once a turn
    *  for as long as the build waits. Nothing is kept to know whether it has been said before; that is for whoever
    *  listens.
+   *
+   * A completed item's progress starts the next one at what the `BuildOverflow` rules keep: 0 with none. Either way,
+   *  the turn's changes of item are settled: the next is asked of the `ProductionChanged` rules from the build as it is
+   *  then.
    */
   check(): IDataObject | null {
+    this.forgetChange();
+
     if (!(this._progress.value() >= this._cost.value()) || !this._building) {
       return null;
     }
@@ -281,9 +313,12 @@ export class CityBuild extends DataObject implements ICityBuild {
       return null;
     }
 
-    const built = this._building.item().build(this._city, this._ruleRegistry);
+    const item = this._building.item(),
+      progress = this._progress.value(),
+      cost = this._cost.value(),
+      built = item.build(this._city, this._ruleRegistry);
 
-    this._progress.set(0);
+    this._progress.set(this.overflow(item, progress, cost));
     this._cleared = {
       reason: 'completed',
       item: this._building.item(),
@@ -316,8 +351,10 @@ export class CityBuild extends DataObject implements ICityBuild {
     return this._cleared ?? null;
   }
 
-  /** Empties the queue. */
+  /** Empties the queue, and forgets the turn's changes of item (as when the city changes hands). */
   clearQueue(): void {
+    this.forgetChange();
+
     this._queue = [];
   }
 
@@ -445,9 +482,12 @@ export class CityBuild extends DataObject implements ICityBuild {
 
   /**
    * Prices what the city is building again, for the city as it is now. A `BuildCostModifier` may depend on who owns
-   *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500).
+   *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500). The turn's changes of
+   *  item are forgotten: a new owner's next change is asked from the build as it is then.
    */
   reprice(): void {
+    this.forgetChange();
+
     if (this._building === null) {
       return;
     }
@@ -490,6 +530,8 @@ export class CityBuild extends DataObject implements ICityBuild {
     reason: CityBuildClearedReason,
     item: Buildable | null = null
   ): void {
+    this.forgetChange();
+
     this._cleared = {
       reason,
       item,
@@ -522,6 +564,86 @@ export class CityBuild extends DataObject implements ICityBuild {
     this._queue = queued;
     // After `build`, which forgets the last move's when it is called for its own sake.
     this._queueDropped = dropped;
+  }
+
+  /**
+   * The progress kept once `item` is completed with `progress` against `cost`: the first `BuildOverflow` rule's answer,
+   *  or 0.
+   */
+  protected overflow(item: Buildable, progress: number, cost: number): number {
+    if (this._ruleRegistry.get(BuildOverflow).length === 0) {
+      return 0;
+    }
+
+    const [kept] = this._ruleRegistry.process(
+      BuildOverflow,
+      this,
+      item,
+      progress,
+      cost
+    );
+
+    return kept ?? 0;
+  }
+
+  /**
+   * Asks the `ProductionChanged` rules what progress to keep, now the build has changed from `previous` to `to`. Asked
+   *  from what the build had before its first change this turn (`_changedFrom`), which is kept while the progress
+   *  differs from it, so a second change, or a change back, is asked from where the turn started. The baseline is
+   *  dropped once anything else has set the progress (a capture, a sabotage), and when the build is cancelled or
+   *  cleared. A rule that answers nothing keeps the progress, but a change back to the item the turn started with
+   *  restores what it had then. Nothing is asked, kept or changed with no rule, or when the build is given the item it
+   *  was already building.
+   */
+  protected productionChanged(previous: Buildable | null, to: Buildable): void {
+    if (
+      this._changedFrom !== undefined &&
+      this._changedFrom.left !== this._progress.value()
+    ) {
+      this.forgetChange();
+    }
+
+    if (previous === to && this._changedFrom === undefined) {
+      return;
+    }
+
+    if (this._ruleRegistry.get(ProductionChanged).length === 0) {
+      return;
+    }
+
+    const from: ICityBuildChangedFrom = this._changedFrom ?? {
+        item: previous,
+        progress: this._progress.value(),
+        left: this._progress.value(),
+      },
+      [answer] = this._ruleRegistry.process(
+        ProductionChanged,
+        this,
+        from.item,
+        to,
+        from.progress
+      ),
+      progress =
+        answer ?? (to === from.item ? from.progress : this._progress.value());
+
+    if (progress !== this._progress.value()) {
+      this._progress.set(progress);
+    }
+
+    if (progress === from.progress) {
+      this.forgetChange();
+
+      return;
+    }
+
+    this._changedFrom = { ...from, left: progress };
+  }
+
+  // The turn's changes are settled: the next change is asked from the build as it is then.
+  private forgetChange(): void {
+    if (this._changedFrom !== undefined) {
+      delete this._changedFrom;
+    }
   }
 
   // Runs what follows from the current item being finished or cleared: what is chosen while it runs (the next queued
