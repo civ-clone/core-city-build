@@ -351,8 +351,10 @@ export class CityBuild extends DataObject implements ICityBuild {
     return this._cleared ?? null;
   }
 
-  /** Empties the queue. */
+  /** Empties the queue, and forgets the turn's changes of item (as when the city changes hands). */
   clearQueue(): void {
+    this.forgetChange();
+
     this._queue = [];
   }
 
@@ -480,9 +482,12 @@ export class CityBuild extends DataObject implements ICityBuild {
 
   /**
    * Prices what the city is building again, for the city as it is now. A `BuildCostModifier` may depend on who owns
-   *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500).
+   *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500). The turn's changes of
+   *  item are forgotten: a new owner's next change is asked from the build as it is then.
    */
   reprice(): void {
+    this.forgetChange();
+
     if (this._building === null) {
       return;
     }

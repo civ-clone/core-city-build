@@ -191,8 +191,9 @@ class CityBuild extends DataObject_1.DataObject {
         // A build restored from a save made before this existed has no `_cleared` at all.
         return (_a = this._cleared) !== null && _a !== void 0 ? _a : null;
     }
-    /** Empties the queue. */
+    /** Empties the queue, and forgets the turn's changes of item (as when the city changes hands). */
     clearQueue() {
+        this.forgetChange();
         this._queue = [];
     }
     cost() {
@@ -292,9 +293,11 @@ class CityBuild extends DataObject_1.DataObject {
     }
     /**
      * Prices what the city is building again, for the city as it is now. A `BuildCostModifier` may depend on who owns
-     *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500).
+     *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500). The turn's changes of
+     *  item are forgotten: a new owner's next change is asked from the build as it is then.
      */
     reprice() {
+        this.forgetChange();
         if (this._building === null) {
             return;
         }

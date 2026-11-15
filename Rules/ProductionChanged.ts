@@ -13,8 +13,9 @@ import Rule from '@civ-clone/core-rule/Rule';
  * twice in a turn is asked from where the turn started, and changing back to the item the turn started with is asked
  * with that item as both `from` and `to`: a rule that takes a share for a change only when the two differ gives the
  * whole progress back. `from` is the item last cleared when the build was building nothing (`cleared()`), or `null`.
- * The turn's start is forgotten when the build is cancelled or cleared (a capture), and once anything other than these
- * rules has set the progress (a sabotage): the next change is asked from the build as it is then.
+ * The turn's start is forgotten when the build is cancelled, cleared, re-priced or its queue cleared (a capture), and
+ * once anything other than these rules has set the progress (a sabotage): the next change is asked from the build as
+ * it is then.
  *
  * Not asked for what a build moves on to by itself: the next queued item once one is completed or can no longer be
  * built.

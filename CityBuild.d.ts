@@ -129,7 +129,7 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   city(): City;
   /** Why the city is building nothing, or `null` while it builds something, or when that isn't known (an older save). */
   cleared(): ICityBuildCleared | null;
-  /** Empties the queue. */
+  /** Empties the queue, and forgets the turn's changes of item (as when the city changes hands). */
   clearQueue(): void;
   cost(): BuildProgress;
   /** Removes the queued item at `index`. A negative one is the first; one past the end does nothing. */
@@ -184,7 +184,8 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   remaining(): number;
   /**
    * Prices what the city is building again, for the city as it is now. A `BuildCostModifier` may depend on who owns
-   *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500).
+   *  the city, so a city that changes hands re-prices its build (civ-clone/web-renderer#500). The turn's changes of
+   *  item are forgotten: a new owner's next change is asked from the build as it is then.
    */
   reprice(): void;
   /** Moves the queued item at `from` to `to`, both clamped to the queue. A `from` past the end does nothing. */

@@ -278,6 +278,51 @@ describe('CityBuild seams', (): void => {
       expect(Object.keys(cityBuild)).not.include('_changedFrom');
     });
 
+    it("forgets the turn's start when a capture keeps the build", async (): Promise<void> => {
+      // A rule that takes everything on a change of category: Warriors with 1, the Temple chosen, 0 left.
+      const { cityBuild } = await setUp(
+        categoryRule(),
+        new ProductionChanged(
+          new Effect(
+            (
+              cityBuild: CityBuild,
+              from: typeof Buildable | null,
+              to: typeof Buildable,
+              progress: number
+            ): number => (from === to ? progress : 0)
+          )
+        )
+      );
+
+      cityBuild.build(Warriors);
+      cityBuild.add(new BuildProgress(1));
+      cityBuild.build(Temple);
+      expect(cityBuild.progress().value()).equal(0);
+      expect(Object.keys(cityBuild)).include('_changedFrom');
+
+      // As base-city-lifecycle's `keepCapturedBuild` does, after the box is emptied (still the 0 left).
+      cityBuild.progress().set(0);
+      cityBuild.clearQueue();
+      cityBuild.reprice();
+      expect(Object.keys(cityBuild)).not.include('_changedFrom');
+
+      // The new owner going back to Warriors doesn't get the old owner's shield back.
+      cityBuild.build(Warriors);
+      expect(cityBuild.progress().value()).equal(0);
+    });
+
+    it("forgets the turn's start on `reprice` or `clearQueue` alone", async (): Promise<void> => {
+      for (const forget of ['reprice', 'clearQueue'] as const) {
+        const { cityBuild } = await setUpPenalty();
+
+        cityBuild.build(Temple);
+        expect(Object.keys(cityBuild)).include('_changedFrom');
+
+        cityBuild[forget]();
+        expect(Object.keys(cityBuild), forget).not.include('_changedFrom');
+      }
+    });
+
     it("drops the turn's start once something else sets the progress", async (): Promise<void> => {
       const { cityBuild } = await setUpPenalty();
 
