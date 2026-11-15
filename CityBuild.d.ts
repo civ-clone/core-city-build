@@ -59,10 +59,15 @@ export interface ICityBuild extends IDataObject {
   setCleared(reason: CityBuildClearedReason, item?: Buildable | null): void;
   unavailable(): IUnavailableBuildItem[];
 }
-/** What a build had before its first change of item this turn (see `CityBuild#build`). */
+/**
+ * What a build had before its first change of item this turn (see `CityBuild#build`), and the progress the last
+ * `ProductionChanged` answer left it with: a progress that no longer matches was set by something else, and the
+ * baseline no longer applies.
+ */
 export interface ICityBuildChangedFrom {
   item: Buildable | null;
   progress: number;
+  left: number;
 }
 export declare class CityBuild extends DataObject implements ICityBuild {
   static readonly transient: string[];
@@ -201,8 +206,11 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   /**
    * Asks the `ProductionChanged` rules what progress to keep, now the build has changed from `previous` to `to`. Asked
    *  from what the build had before its first change this turn (`_changedFrom`), which is kept while the progress
-   *  differs from it, so a second change, or a change back, is asked from where the turn started. Nothing is asked,
-   *  kept or changed with no rule, or when the build is given the item it was already building.
+   *  differs from it, so a second change, or a change back, is asked from where the turn started. The baseline is
+   *  dropped once anything else has set the progress (a capture, a sabotage), and when the build is cancelled or
+   *  cleared. A rule that answers nothing keeps the progress, but a change back to the item the turn started with
+   *  restores what it had then. Nothing is asked, kept or changed with no rule, or when the build is given the item it
+   *  was already building.
    */
   protected productionChanged(previous: Buildable | null, to: Buildable): void;
   private forgetChange;

@@ -255,6 +255,43 @@ describe('CityBuild seams', (): void => {
       expect(asked).called.once;
     });
 
+    it("forgets the turn's start when the build is cancelled or cleared, as on a capture", async (): Promise<void> => {
+      const { cityBuild } = await setUpPenalty();
+
+      cityBuild.build(Temple);
+      expect(Object.keys(cityBuild)).include('_changedFrom');
+
+      // As civ1-city's capture does: the box emptied, the build cancelled.
+      cityBuild.progress().set(0);
+      cityBuild.cancel('captured');
+      expect(Object.keys(cityBuild)).not.include('_changedFrom');
+
+      // The captor's choice is asked from what the build has now, not the old owner's 15.
+      cityBuild.build(Warriors);
+      expect(cityBuild.progress().value()).equal(0);
+
+      cityBuild.add(new BuildProgress(6));
+      cityBuild.build(Temple);
+      expect(Object.keys(cityBuild)).include('_changedFrom');
+
+      cityBuild.setCleared('captured');
+      expect(Object.keys(cityBuild)).not.include('_changedFrom');
+    });
+
+    it("drops the turn's start once something else sets the progress", async (): Promise<void> => {
+      const { cityBuild } = await setUpPenalty();
+
+      cityBuild.build(Temple);
+      expect(cityBuild.progress().value()).equal(8);
+
+      // A sabotage, say: the progress set from outside.
+      cityBuild.progress().set(2);
+
+      // Asked from the Temple's 2, not the Warriors' 15 at the turn's start.
+      cityBuild.build(Warriors);
+      expect(cityBuild.progress().value()).equal(1);
+    });
+
     it('keeps the progress for a rule that answers nothing', async (): Promise<void> => {
       const { cityBuild } = await setUp(
         new ProductionChanged(new Effect((): void => undefined))
@@ -264,6 +301,32 @@ describe('CityBuild seams', (): void => {
       cityBuild.add(new BuildProgress(15));
       cityBuild.build(Temple);
 
+      expect(cityBuild.progress().value()).equal(15);
+      expect(Object.keys(cityBuild)).not.include('_changedFrom');
+    });
+  });
+
+  describe('ProductionChanged with no answer', (): void => {
+    it('restores the progress the turn started with on a change back', async (): Promise<void> => {
+      const { cityBuild } = await setUp(
+        new ProductionChanged(
+          new Effect(
+            (
+              cityBuild: CityBuild,
+              from: typeof Buildable | null,
+              to: typeof Buildable,
+              progress: number
+            ): number | void => (from === to ? undefined : progress / 2)
+          )
+        )
+      );
+
+      cityBuild.build(Warriors);
+      cityBuild.add(new BuildProgress(15));
+      cityBuild.build(Temple);
+      expect(cityBuild.progress().value()).equal(7.5);
+
+      cityBuild.build(Warriors);
       expect(cityBuild.progress().value()).equal(15);
       expect(Object.keys(cityBuild)).not.include('_changedFrom');
     });

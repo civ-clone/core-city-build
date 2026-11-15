@@ -95,10 +95,15 @@ const cityBuildKeys: (keyof CityBuild)[] = [
   'remaining',
 ];
 
-/** What a build had before its first change of item this turn (see `CityBuild#build`). */
+/**
+ * What a build had before its first change of item this turn (see `CityBuild#build`), and the progress the last
+ * `ProductionChanged` answer left it with: a progress that no longer matches was set by something else, and the
+ * baseline no longer applies.
+ */
 export interface ICityBuildChangedFrom {
   item: Buildable | null;
   progress: number;
+  left: number;
 }
 
 // The builds being settled (see `CityBuild#settle`). Kept here, not on the build, so it is no part of a save.
@@ -254,6 +259,8 @@ export class CityBuild extends DataObject implements ICityBuild {
    *  what `cleared()` gives, set before the rules run, so a rule that chooses another build clears it again.
    */
   cancel(reason: CityBuildClearedReason = 'cancelled'): void {
+    this.forgetChange();
+
     if (this._building === null) {
       return;
     }
@@ -518,6 +525,8 @@ export class CityBuild extends DataObject implements ICityBuild {
     reason: CityBuildClearedReason,
     item: Buildable | null = null
   ): void {
+    this.forgetChange();
+
     this._cleared = {
       reason,
       item,
@@ -575,10 +584,20 @@ export class CityBuild extends DataObject implements ICityBuild {
   /**
    * Asks the `ProductionChanged` rules what progress to keep, now the build has changed from `previous` to `to`. Asked
    *  from what the build had before its first change this turn (`_changedFrom`), which is kept while the progress
-   *  differs from it, so a second change, or a change back, is asked from where the turn started. Nothing is asked,
-   *  kept or changed with no rule, or when the build is given the item it was already building.
+   *  differs from it, so a second change, or a change back, is asked from where the turn started. The baseline is
+   *  dropped once anything else has set the progress (a capture, a sabotage), and when the build is cancelled or
+   *  cleared. A rule that answers nothing keeps the progress, but a change back to the item the turn started with
+   *  restores what it had then. Nothing is asked, kept or changed with no rule, or when the build is given the item it
+   *  was already building.
    */
   protected productionChanged(previous: Buildable | null, to: Buildable): void {
+    if (
+      this._changedFrom !== undefined &&
+      this._changedFrom.left !== this._progress.value()
+    ) {
+      this.forgetChange();
+    }
+
     if (previous === to && this._changedFrom === undefined) {
       return;
     }
@@ -590,18 +609,17 @@ export class CityBuild extends DataObject implements ICityBuild {
     const from: ICityBuildChangedFrom = this._changedFrom ?? {
         item: previous,
         progress: this._progress.value(),
+        left: this._progress.value(),
       },
-      [progress] = this._ruleRegistry.process(
+      [answer] = this._ruleRegistry.process(
         ProductionChanged,
         this,
         from.item,
         to,
         from.progress
-      );
-
-    if (progress === undefined) {
-      return;
-    }
+      ),
+      progress =
+        answer ?? (to === from.item ? from.progress : this._progress.value());
 
     if (progress !== this._progress.value()) {
       this._progress.set(progress);
@@ -613,7 +631,7 @@ export class CityBuild extends DataObject implements ICityBuild {
       return;
     }
 
-    this._changedFrom = from;
+    this._changedFrom = { ...from, left: progress };
   }
 
   // The turn's changes are settled: the next change is asked from the build as it is then.

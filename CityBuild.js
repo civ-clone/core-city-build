@@ -124,6 +124,7 @@ class CityBuild extends DataObject_1.DataObject {
      *  what `cleared()` gives, set before the rules run, so a rule that chooses another build clears it again.
      */
     cancel(reason = 'cancelled') {
+        this.forgetChange();
         if (this._building === null) {
             return;
         }
@@ -319,6 +320,7 @@ class CityBuild extends DataObject_1.DataObject {
     }
     /** Records why the city is building nothing, for a reason the build itself doesn't know, such as a new city. */
     setCleared(reason, item = null) {
+        this.forgetChange();
         this._cleared = {
             reason,
             item,
@@ -358,11 +360,18 @@ class CityBuild extends DataObject_1.DataObject {
     /**
      * Asks the `ProductionChanged` rules what progress to keep, now the build has changed from `previous` to `to`. Asked
      *  from what the build had before its first change this turn (`_changedFrom`), which is kept while the progress
-     *  differs from it, so a second change, or a change back, is asked from where the turn started. Nothing is asked,
-     *  kept or changed with no rule, or when the build is given the item it was already building.
+     *  differs from it, so a second change, or a change back, is asked from where the turn started. The baseline is
+     *  dropped once anything else has set the progress (a capture, a sabotage), and when the build is cancelled or
+     *  cleared. A rule that answers nothing keeps the progress, but a change back to the item the turn started with
+     *  restores what it had then. Nothing is asked, kept or changed with no rule, or when the build is given the item it
+     *  was already building.
      */
     productionChanged(previous, to) {
         var _a;
+        if (this._changedFrom !== undefined &&
+            this._changedFrom.left !== this._progress.value()) {
+            this.forgetChange();
+        }
         if (previous === to && this._changedFrom === undefined) {
             return;
         }
@@ -372,10 +381,8 @@ class CityBuild extends DataObject_1.DataObject {
         const from = (_a = this._changedFrom) !== null && _a !== void 0 ? _a : {
             item: previous,
             progress: this._progress.value(),
-        }, [progress] = this._ruleRegistry.process(ProductionChanged_1.default, this, from.item, to, from.progress);
-        if (progress === undefined) {
-            return;
-        }
+            left: this._progress.value(),
+        }, [answer] = this._ruleRegistry.process(ProductionChanged_1.default, this, from.item, to, from.progress), progress = answer !== null && answer !== void 0 ? answer : (to === from.item ? from.progress : this._progress.value());
         if (progress !== this._progress.value()) {
             this._progress.set(progress);
         }
@@ -383,7 +390,7 @@ class CityBuild extends DataObject_1.DataObject {
             this.forgetChange();
             return;
         }
-        this._changedFrom = from;
+        this._changedFrom = { ...from, left: progress };
     }
     // The turn's changes are settled: the next change is asked from the build as it is then.
     forgetChange() {

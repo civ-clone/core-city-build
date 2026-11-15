@@ -31,8 +31,10 @@ change of item keeps the progress.
 - `ProductionChanged` rules (`Rules/ProductionChanged.ts`) say what progress a change of item keeps. They are asked
   from what the build had before its first change of the turn, so changing back gives the progress back. That is kept
   on the build only while it differs from the progress, and forgotten when production goes in (`add`) or the build is
-  checked (`check`), so a build that has had no such change saves exactly as before. They are not asked when the build
-  moves on to its next queued item by itself.
+  checked (`check`), so a build that has had no such change saves exactly as before. It is also dropped when the build
+  is cancelled or cleared (a capture), and once anything else sets the progress (a sabotage). A rule that answers nothing
+  keeps the progress, except that a change back to the item the turn started with restores what it had then. They are
+  not asked when the build moves on to its next queued item by itself.
 
 An item that should never complete, and turn each turn's progress into something else (gold, say), needs no rule of its
 own: give it no cost and a `Hold` rule that always holds it, and a `BuildingHeld` rule, processed at every `check`,
