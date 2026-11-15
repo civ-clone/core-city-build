@@ -19,6 +19,25 @@ A ruleset's `Hold` rules keep a city from completing an item it has paid for, wh
   are processed, with the build, the item and those ids: in play, every turn the build waits. Nothing is saved for it,
   so telling a player once is for whoever listens.
 
+## Carry-over, categories and changing what is built
+
+With none of these rules registered, a build works as it always has: a completed item's progress goes back to 0, and a
+change of item keeps the progress.
+
+- `BuildOverflow` rules (`Rules/BuildOverflow.ts`) say how much progress a completed item leaves for the next one:
+  `progress - cost` to carry the excess over.
+- `BuildCategory` rules (`Rules/BuildCategory.ts`) put an item in a category of the ruleset's own ('unit', 'wonder'…);
+  `lib/buildCategory` gives it, or `null`.
+- `ProductionChanged` rules (`Rules/ProductionChanged.ts`) say what progress a change of item keeps. They are asked
+  from what the build had before its first change of the turn, so changing back gives the progress back. That is kept
+  on the build only while it differs from the progress, and forgotten when production goes in (`add`) or the build is
+  checked (`check`), so a build that has had no such change saves exactly as before. They are not asked when the build
+  moves on to its next queued item by itself.
+
+An item that should never complete, and turn each turn's progress into something else (gold, say), needs no rule of its
+own: give it no cost and a `Hold` rule that always holds it, and a `BuildingHeld` rule, processed at every `check`,
+does the conversion and sets the progress back to 0.
+
 ## TODO
 
 Add a generic `RushProduction` mechanism that could, for some type of `Yield`, complete production of the currently in-

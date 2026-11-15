@@ -59,9 +59,15 @@ export interface ICityBuild extends IDataObject {
   setCleared(reason: CityBuildClearedReason, item?: Buildable | null): void;
   unavailable(): IUnavailableBuildItem[];
 }
+/** What a build had before its first change of item this turn (see `CityBuild#build`). */
+export interface ICityBuildChangedFrom {
+  item: Buildable | null;
+  progress: number;
+}
 export declare class CityBuild extends DataObject implements ICityBuild {
   static readonly transient: string[];
   private _auto;
+  private _changedFrom?;
   private _availableCityBuildItemsRegistry;
   private _building;
   private _city;
@@ -76,6 +82,7 @@ export declare class CityBuild extends DataObject implements ICityBuild {
     availableCityBuildItemsRegistry?: AvailableCityBuildItemsRegistry,
     ruleRegistry?: RuleRegistry
   );
+  /** Adds `production` to the progress, settling the turn's changes of item (see `ProductionChanged`). */
   add(production: Yield): void;
   auto(): boolean;
   available(): BuildItem[];
@@ -108,6 +115,10 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    *  `BuildingHeld` rules, with the item and the ids `held()` gives (civ-clone/web-renderer#970): in play, once a turn
    *  for as long as the build waits. Nothing is kept to know whether it has been said before; that is for whoever
    *  listens.
+   *
+   * A completed item's progress starts the next one at what the `BuildOverflow` rules keep: 0 with none. Either way,
+   *  the turn's changes of item are settled: the next is asked of the `ProductionChanged` rules from the build as it is
+   *  then.
    */
   check(): IDataObject | null;
   city(): City;
@@ -182,6 +193,19 @@ export declare class CityBuild extends DataObject implements ICityBuild {
    *  Leaves the city building nothing when none is left.
    */
   protected advanceQueue(): void;
+  /**
+   * The progress kept once `item` is completed with `progress` against `cost`: the first `BuildOverflow` rule's answer,
+   *  or 0.
+   */
+  protected overflow(item: Buildable, progress: number, cost: number): number;
+  /**
+   * Asks the `ProductionChanged` rules what progress to keep, now the build has changed from `previous` to `to`. Asked
+   *  from what the build had before its first change this turn (`_changedFrom`), which is kept while the progress
+   *  differs from it, so a second change, or a change back, is asked from where the turn started. Nothing is asked,
+   *  kept or changed with no rule, or when the build is given the item it was already building.
+   */
+  protected productionChanged(previous: Buildable | null, to: Buildable): void;
+  private forgetChange;
   private settle;
   /**
    * What the queue does when the build is cleared for `reason`: a city that has changed hands drops its previous
