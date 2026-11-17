@@ -107,8 +107,9 @@ export declare class CityBuild extends DataObject implements ICityBuild {
   build(ItemToBuild: Buildable): void;
   building(): BuildItem | null;
   /**
-   * Stops building the current item, if any, and processes the `BuildingCancelled` rules. Progress is kept. `reason` is
-   *  what `cleared()` gives, set before the rules run, so a rule that chooses another build clears it again.
+   * Stops building the current item, if any, and processes the `BuildingCancelled` rules, with the item and `reason`.
+   *  Progress is kept. `reason` is what `cleared()` gives, set before the rules run, so a rule that chooses another
+   *  build clears it again.
    */
   cancel(reason?: CityBuildClearedReason): void;
   /**
