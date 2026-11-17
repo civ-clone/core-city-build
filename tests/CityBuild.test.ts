@@ -268,6 +268,48 @@ describe('CityBuild', (): void => {
     expect(effectSpy).called.once;
   });
 
+  it('should give the `BuildingCancelled` rules the item and the reason (civ-clone/web-renderer#978)', async (): Promise<void> => {
+    const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
+      ruleRegistry = new RuleRegistry(),
+      cityBuild = new CityBuild(
+        await setUpCity(),
+        availableBuildItemsRegistry,
+        ruleRegistry
+      ),
+      // Whether it was this build, rather than the build itself, which a failing comparison would print in full.
+      seen: [boolean, Buildable, string][] = [];
+
+    ruleRegistry.register(
+      new Build(new Effect((): IBuildCriterion => new Criterion(() => true))),
+      ...buildCost(Unit, 10),
+      new BuildingCancelled(
+        new Effect(
+          (cancelled: CityBuild, item: Buildable, reason: string): void => {
+            seen.push([cancelled === cityBuild, item, reason]);
+          }
+        )
+      )
+    );
+
+    availableBuildItemsRegistry.register(Unit);
+
+    cityBuild.build(Unit);
+    cityBuild.cancel();
+
+    cityBuild.build(Unit);
+    cityBuild.cancel('captured');
+
+    cityBuild.build(Unit);
+    availableBuildItemsRegistry.unregister(Unit);
+    cityBuild.revalidate();
+
+    expect(seen).eql([
+      [true, Unit, 'cancelled'],
+      [true, Unit, 'captured'],
+      [true, Unit, 'unavailable'],
+    ]);
+  });
+
   describe('why it is building nothing (civ-clone/web-renderer#716)', (): void => {
     const setUp = async () => {
       const availableBuildItemsRegistry = new AvailableCityBuildItemsRegistry(),
@@ -1148,6 +1190,33 @@ describe('CityBuild', (): void => {
       expect(cityBuild.building()!.item()).equal(Second);
       expect(cityBuild.queued()).eql([]);
       expect(seen).eql([Second]);
+    });
+
+    it('should still give the rules the item it could no longer build, and why, once Auto has gone on to its queue (civ-clone/web-renderer#978)', async (): Promise<void> => {
+      const { availableBuildItemsRegistry, cityBuild, ruleRegistry } =
+          await setUp(),
+        seen: [Buildable, string, unknown][] = [];
+
+      ruleRegistry.register(
+        new BuildingCancelled(
+          new Effect(
+            (cancelled: CityBuild, item: Buildable, reason: string): void => {
+              seen.push([item, reason, cancelled.cleared()]);
+            }
+          )
+        )
+      );
+
+      cityBuild.setAuto(true);
+      cityBuild.build(Unit);
+      cityBuild.enqueue(Second);
+
+      availableBuildItemsRegistry.unregister(Unit);
+
+      cityBuild.revalidate();
+
+      // `cleared()` no longer says it: the city is building the next item.
+      expect(seen).eql([[Unit, 'unavailable', null]]);
     });
 
     it('should start the first queued item when the player chooses it, not build it twice', async (): Promise<void> => {

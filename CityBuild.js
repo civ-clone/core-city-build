@@ -120,23 +120,27 @@ class CityBuild extends DataObject_1.DataObject {
         return this._building;
     }
     /**
-     * Stops building the current item, if any, and processes the `BuildingCancelled` rules. Progress is kept. `reason` is
-     *  what `cleared()` gives, set before the rules run, so a rule that chooses another build clears it again.
+     * Stops building the current item, if any, and processes the `BuildingCancelled` rules, with the item and `reason`.
+     *  Progress is kept. `reason` is what `cleared()` gives, set before the rules run, so a rule that chooses another
+     *  build clears it again.
      */
     cancel(reason = 'cancelled') {
         this.forgetChange();
         if (this._building === null) {
             return;
         }
+        const item = this._building.item();
         this._cleared = {
             reason,
-            item: this._building.item(),
+            item,
         };
         this._building = null;
         this._cost.set(Infinity);
         this.settle(() => {
             this.queueAfterClearing(reason);
-            this._ruleRegistry.process(BulidingCancelled_1.default, this);
+            // The item and the reason as well as the build: a city on Auto has already gone on to its queue here, which
+            //  forgets `cleared()` (civ-clone/web-renderer#978).
+            this._ruleRegistry.process(BulidingCancelled_1.default, this, item, reason);
         });
     }
     /**
